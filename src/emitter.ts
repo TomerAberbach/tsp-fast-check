@@ -40,9 +40,7 @@ export async function $onEmit(context: EmitContext) {
           context.program.getGlobalNamespaceType().namespaces,
           values,
           filter((namespace) => namespace.name !== "TypeSpec"),
-          flatMap((namespace) =>
-            concat<[string, Type]>(namespace.namespaces, namespace.models),
-          ),
+          flatMap(namespaceTypes),
           map(([name, type]) => `export const ${name} = ${emitType(type)};\n`),
         ),
       ),
@@ -76,13 +74,22 @@ const emitNamespace = (namespace: Namespace): string =>
     "{",
     indent(
       pipe(
-        concat<[string, Type]>(namespace.namespaces, namespace.models),
+        namespaceTypes(namespace),
         map(([name, type]) => `${name}: ${emitType(type)},`),
         join("\n\n"),
       ),
     ),
     "}",
   ].join("\n");
+
+const namespaceTypes = (namespace: Namespace) =>
+  concat<[string, Type]>(
+    namespace.namespaces,
+    namespace.models,
+    namespace.unions,
+    namespace.enums,
+    namespace.scalars,
+  );
 
 const emitModel = (model: Model): string => {
   const dictionary = model.indexer
