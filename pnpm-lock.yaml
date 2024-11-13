@@ -16,6 +16,12 @@ importers:
       lfi:
         specifier: ^3.5.1
         version: 3.5.1
+      memoize:
+        specifier: ^10.0.0
+        version: 10.0.0
+      toposort:
+        specifier: ^2.0.2
+        version: 2.0.2
       yaml:
         specifier: ^2.6.0
         version: 2.6.0
@@ -23,6 +29,9 @@ importers:
       "@types/node":
         specifier: latest
         version: 22.9.0
+      "@types/toposort":
+        specifier: ^2.0.7
+        version: 2.0.7
       "@typescript-eslint/eslint-plugin":
         specifier: ^6.0.0
         version: 6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.6.3))(eslint@8.57.1)(typescript@5.6.3)
@@ -232,6 +241,12 @@ packages:
     resolution:
       {
         integrity: sha512-I8EUhyrgfLrcTkzV3TSsGyl1tSuPrEDzr0yd5m90UgNxQkyDXULk3b6MlQqTCpZpNtWe1K0hzclnZkTcLBe2UQ==,
+      }
+
+  "@types/toposort@2.0.7":
+    resolution:
+      {
+        integrity: sha512-sQNk65vbC36+UixCkcky+dCr7MlflHcVILg1FVGqlUntsLFv9xd9ToWIVko/gTuin+cVe16t+2YubEFkhnSuPQ==,
       }
 
   "@typescript-eslint/eslint-plugin@6.21.0":
@@ -1028,6 +1043,13 @@ packages:
         integrity: sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==,
       }
 
+  memoize@10.0.0:
+    resolution:
+      {
+        integrity: sha512-H6cBLgsi6vMWOcCpvVCdFFnl3kerEXbrYh9q+lY6VXvQSmM6CkmV08VOwT+WE2tzIEqRPFfAq3fm4v/UIW6mSA==,
+      }
+    engines: { node: ">=18" }
+
   merge2@1.4.1:
     resolution:
       {
@@ -1041,6 +1063,13 @@ packages:
         integrity: sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==,
       }
     engines: { node: ">=8.6" }
+
+  mimic-function@5.0.1:
+    resolution:
+      {
+        integrity: sha512-VP79XUPxV2CigYP3jWwAUFSku2aKqBH7uTAapFWCBqutsbmDo96KY5o8uh6U+/YSIn5OxJnXp73beVkpqMIGhA==,
+      }
+    engines: { node: ">=18" }
 
   minimatch@3.1.2:
     resolution:
@@ -1353,6 +1382,12 @@ packages:
       }
     engines: { node: ">=8.0" }
 
+  toposort@2.0.2:
+    resolution:
+      {
+        integrity: sha512-0a5EOkAUp8D4moMi2W8ZF8jcga7BgZd91O/yabJCFY8az+XSzeGyTKs0Aoo897iV1Nj6guFq8orWDS96z91oGg==,
+      }
+
   ts-api-utils@1.4.0:
     resolution:
       {
@@ -1620,6 +1655,8 @@ snapshots:
       undici-types: 6.19.8
 
   "@types/semver@7.5.8": {}
+
+  "@types/toposort@2.0.7": {}
 
   "@typescript-eslint/eslint-plugin@6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.6.3))(eslint@8.57.1)(typescript@5.6.3)":
     dependencies:
@@ -2113,12 +2150,18 @@ snapshots:
 
   lodash.merge@4.6.2: {}
 
+  memoize@10.0.0:
+    dependencies:
+      mimic-function: 5.0.1
+
   merge2@1.4.1: {}
 
   micromatch@4.0.8:
     dependencies:
       braces: 3.0.3
       picomatch: 2.3.1
+
+  mimic-function@5.0.1: {}
 
   minimatch@3.1.2:
     dependencies:
@@ -2253,6 +2296,8 @@ snapshots:
   to-regex-range@5.0.1:
     dependencies:
       is-number: 7.0.0
+
+  toposort@2.0.2: {}
 
   ts-api-utils@1.4.0(typescript@5.6.3):
     dependencies:

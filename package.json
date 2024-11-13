@@ -28,6 +28,8 @@
     "fast-check": "^3.23.1",
     "indent-string": "^5.0.0",
     "lfi": "^3.5.1",
+    "memoize": "^10.0.0",
+    "toposort": "^2.0.2",
     "yaml": "^2.6.0"
   },
   "peerDependencies": {
@@ -39,6 +41,7 @@
   },
   "devDependencies": {
     "@types/node": "latest",
+    "@types/toposort": "^2.0.7",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "@typespec/compiler": "^0.62.0",
