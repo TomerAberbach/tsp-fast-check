@@ -127,6 +127,8 @@ const emitString = (string: Scalar, decorators: DecoratorApplication[]): string 
       switch (decorator.decorator.name) {
         case "$minLength":
           return ["minLength", String(Number(decorator.args[0]?.jsValue))];
+        case "$maxLength":
+          return ["maxLength", String(Number(decorator.args[0]?.jsValue))];
       }
 
       return null;

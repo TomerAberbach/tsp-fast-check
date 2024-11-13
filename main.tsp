@@ -38,6 +38,7 @@ namespace Pets {
     id: int32;
 
     @minLength(1)
+    @maxLength(4)
     name: string;
 
     @minValue(0)
