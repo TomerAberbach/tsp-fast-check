@@ -128,6 +128,8 @@ const emitScalar = (
   decorators: DecoratorApplication[] = [],
 ): string => {
   switch (scalar.name) {
+    case "boolean":
+      return "fc.boolean()";
     case "int8":
       return emitInteger(scalar, decorators, { min: -128, max: 127 });
     case "int16":

@@ -16,6 +16,7 @@ union Breed {
   beagle: {
     name: string,
     age: int32,
+    blah: boolean,
   },
   shepherd: {
     name2: string,
