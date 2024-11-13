@@ -166,7 +166,10 @@ const emitScalar = (
       return emitDouble(scalar, decorators);
     case "string":
       return emitString(scalar, decorators);
+    case "url":
+      return "fc.webUrl()";
   }
+
   throw new Error(`Unhandled Scalar: ${scalar.name}`);
 };
 

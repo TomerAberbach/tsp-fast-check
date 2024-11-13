@@ -10,6 +10,7 @@ export const Pets = {
   Pet: fc.record({
     breed: fc.oneof(
       fc.record({
+        url: fc.webUrl(),
         name: fc.string(),
         name2: fc.array(fc.string()),
         age: fc.integer({
