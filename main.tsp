@@ -20,6 +20,7 @@ union Breed {
   shepherd: {
     name2: string,
     age: int32,
+    age2: int16,
   },
   retriever: {
     name3: string,

@@ -10,6 +10,7 @@ import {
   Scalar,
   DecoratorApplication,
   isNumeric,
+  DecoratorArgument,
 } from "@typespec/compiler";
 import indentString from "indent-string";
 import {
@@ -127,21 +128,36 @@ const emitScalar = (
   decorators: DecoratorApplication[] = [],
 ): string => {
   switch (scalar.name) {
+    case "int8":
+      return emitInteger(scalar, decorators, { min: -128, max: 127 });
+    case "int16":
+      return emitInteger(scalar, decorators, { min: -32_768, max: 32_767 });
     case "int32":
-      return emitInteger(scalar, decorators);
+      return emitInteger(scalar, decorators, {
+        min: -2_147_483_648,
+        max: 2_147_483_647,
+      });
     case "string":
       return emitString(scalar, decorators);
   }
   throw new Error(`Unhandled Scalar: ${scalar.name}`);
 };
 
-const emitInteger = (integer: Scalar, decorators: DecoratorApplication[]) => {
+const emitInteger = (
+  integer: Scalar,
+  decorators: DecoratorApplication[],
+  { min, max }: { min: number; max: number },
+) => {
   const nameToDecorator = getNameToDecorator(
     concat(decorators, integer.decorators),
   );
   return `fc.integer(${emitOptions({
-    min: nameToDecorator.$minValue?.[0],
-    max: nameToDecorator.$maxValue?.[0],
+    min: getDecoratorValue(
+      Math.max(min, Number(nameToDecorator.$minValue?.[0] ?? min)),
+    ),
+    max: getDecoratorValue(
+      Math.min(max, Number(nameToDecorator.$maxValue?.[0] ?? max)),
+    ),
   })})`;
 };
 
@@ -153,33 +169,37 @@ const emitString = (
     concat(decorators, string.decorators),
   );
   return `fc.string(${emitOptions({
-    minLength: nameToDecorator.$minLength?.[0],
-    maxLength: nameToDecorator.$maxLength?.[0],
+    minLength: getDecoratorValue(nameToDecorator.$minLength?.[0]),
+    maxLength: getDecoratorValue(nameToDecorator.$maxLength?.[0]),
   })})`;
 };
 
 const getNameToDecorator = (
   decorators: Iterable<DecoratorApplication>,
-): Record<string, string[]> =>
+): Record<string, DecoratorArgument["jsValue"][]> =>
   pipe(
     decorators,
-    map((decorator): [string, string[]] => [
+    map((decorator): [string, DecoratorArgument["jsValue"][]] => [
       decorator.decorator.name,
-      decorator.args.map((arg) => {
-        const value = arg.jsValue;
-        return JSON.stringify(isNumeric(value) ? value.asNumber() : value);
-      }),
+      decorator.args.map((arg) => arg.jsValue),
     ]),
     reduce(toObject()),
   );
 
+const getDecoratorValue = (
+  value: DecoratorArgument["jsValue"],
+): string | null =>
+  value == null
+    ? null
+    : JSON.stringify(isNumeric(value) ? value.asNumber() : value);
+
 const emitOptions = (
-  properties: Record<string, string | undefined>,
+  properties: Record<string, string | undefined | null>,
   { emitEmpty = false }: { emitEmpty?: boolean } = {},
 ): string => {
   const options = pipe(
     entries(properties),
-    filter(([, value]) => value !== undefined),
+    filter(([, value]) => value != null),
     map(([key, value]) => `${key}: ${value},`),
     join("\n"),
   );
