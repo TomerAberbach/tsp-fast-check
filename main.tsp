@@ -17,6 +17,8 @@ union Breed {
     name: string,
     age: int32,
     blah: boolean,
+    blah2: float32,
+    blah3: float64,
   },
   shepherd: {
     name2: string,

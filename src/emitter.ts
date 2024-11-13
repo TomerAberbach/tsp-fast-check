@@ -139,6 +139,10 @@ const emitScalar = (
         min: -2_147_483_648,
         max: 2_147_483_647,
       });
+    case "float32":
+      return emitFloat(scalar, decorators);
+    case "float64":
+      return emitDouble(scalar, decorators);
     case "string":
       return emitString(scalar, decorators);
   }
@@ -160,6 +164,26 @@ const emitInteger = (
     max: getDecoratorValue(
       Math.min(max, Number(nameToDecorator.$maxValue?.[0] ?? max)),
     ),
+  })})`;
+};
+
+const emitFloat = (float: Scalar, decorators: DecoratorApplication[]) => {
+  const nameToDecorator = getNameToDecorator(
+    concat(decorators, float.decorators),
+  );
+  return `fc.float(${emitOptions({
+    min: getDecoratorValue(nameToDecorator.$minValue?.[0]),
+    max: getDecoratorValue(nameToDecorator.$maxValue?.[0]),
+  })})`;
+};
+
+const emitDouble = (double: Scalar, decorators: DecoratorApplication[]) => {
+  const nameToDecorator = getNameToDecorator(
+    concat(decorators, double.decorators),
+  );
+  return `fc.double(${emitOptions({
+    min: getDecoratorValue(nameToDecorator.$minValue?.[0]),
+    max: getDecoratorValue(nameToDecorator.$maxValue?.[0]),
   })})`;
 };
 
