@@ -11,6 +11,7 @@ export const Pets = {
     breed: fc.oneof(
       fc.record({
         url: fc.webUrl(),
+        bytes: fc.int8Array(),
         name: fc.string(),
         name2: fc.array(fc.string()),
         age: fc.integer({
@@ -33,12 +34,14 @@ export const Pets = {
           max: 32767,
         }),
       }),
-      fc.tuple(
-        fc.dictionary(fc.string(), fc.string()),
-        fc.record({
-          name3: fc.string(),
-        }),
-      ).map(([dictionary, record]) => ({ ...dictionary, ...record })),
+      fc
+        .tuple(
+          fc.dictionary(fc.string(), fc.string()),
+          fc.record({
+            name3: fc.string(),
+          }),
+        )
+        .map(([dictionary, record]) => ({ ...dictionary, ...record })),
     ),
     id: fc.integer({
       min: -2147483648,
@@ -52,13 +55,7 @@ export const Pets = {
       min: 0,
       max: 100,
     }),
-    kind: fc.constantFrom(
-      "dog",
-      "cat",
-      "fish",
-      "bird",
-      "reptile",
-    ),
+    kind: fc.constantFrom("dog", "cat", "fish", "bird", "reptile"),
   }),
 };
 

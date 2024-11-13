@@ -166,6 +166,8 @@ const emitScalar = (
       return emitDouble(scalar, decorators);
     case "string":
       return emitString(scalar, decorators);
+    case "bytes":
+      return "fc.int8Array()";
     case "url":
       return "fc.webUrl()";
   }
