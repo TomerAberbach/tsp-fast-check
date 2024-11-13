@@ -9,16 +9,19 @@ import {
   Union,
   Scalar,
   DecoratorApplication,
+  isNumeric,
 } from "@typespec/compiler";
 import indentString from "indent-string";
 import {
   concat,
+  entries,
   filter,
-  filterMap,
   flatMap,
   join,
   map,
   pipe,
+  reduce,
+  toObject,
   values,
 } from "lfi";
 
@@ -81,36 +84,43 @@ const emitNamespace = (namespace: Namespace): string =>
   ].join("\n");
 
 const emitModel = (model: Model): string =>
-  emitArbitrary(
-    "record",
+  `fc.record(${emitOptions(
     pipe(
       model.properties,
       map(([name, property]): [string, string] => [
         name,
         emitType(property.type, property.decorators),
       ]),
+      reduce(toObject()),
     ),
-  );
+    { emitEmpty: true },
+  )})`;
 
 const emitUnion = (union: Union): string =>
-  emitArbitrary(
-    "oneof",
-    pipe(
-      union.variants,
-      map(([, variant]) => `${emitType(variant.type)},`),
-      join("\n"),
+  [
+    "fc.oneof(",
+    indent(
+      pipe(
+        union.variants,
+        map(([, variant]) => `${emitType(variant.type)},`),
+        join("\n"),
+      ),
     ),
-  );
+    ")",
+  ].join("\n");
 
 const emitEnum = ($enum: Enum): string =>
-  emitArbitrary(
-    "constantFrom",
-    pipe(
-      $enum.members,
-      map(([, member]) => `${JSON.stringify(member.value)},`),
-      join("\n"),
+  [
+    "fc.constantFrom(",
+    indent(
+      pipe(
+        $enum.members,
+        map(([, member]) => `${JSON.stringify(member.value)},`),
+        join("\n"),
+      ),
     ),
-  );
+    ")",
+  ].join("\n");
 
 const emitScalar = (
   scalar: Scalar,
@@ -118,55 +128,66 @@ const emitScalar = (
 ): string => {
   switch (scalar.name) {
     case "int32":
-      return emitArbitrary("integer");
+      return emitInteger(scalar, decorators);
     case "string":
       return emitString(scalar, decorators);
   }
   throw new Error(`Unhandled Scalar: ${scalar.name}`);
 };
 
+const emitInteger = (integer: Scalar, decorators: DecoratorApplication[]) => {
+  const nameToDecorator = getNameToDecorator(
+    concat(decorators, integer.decorators),
+  );
+  return `fc.integer(${emitOptions({
+    min: nameToDecorator.$minValue?.[0],
+    max: nameToDecorator.$maxValue?.[0],
+  })})`;
+};
+
 const emitString = (
   string: Scalar,
   decorators: DecoratorApplication[],
-): string =>
-  emitArbitrary(
-    "string",
-    pipe(
-      concat(decorators, string.decorators),
-      filterMap((decorator): [string, string] | null => {
-        switch (decorator.decorator.name) {
-          case "$minLength":
-            return ["minLength", String(Number(decorator.args[0]?.jsValue))];
-          case "$maxLength":
-            return ["maxLength", String(Number(decorator.args[0]?.jsValue))];
-        }
+): string => {
+  const nameToDecorator = getNameToDecorator(
+    concat(decorators, string.decorators),
+  );
+  return `fc.string(${emitOptions({
+    minLength: nameToDecorator.$minLength?.[0],
+    maxLength: nameToDecorator.$maxLength?.[0],
+  })})`;
+};
 
-        return null;
+const getNameToDecorator = (
+  decorators: Iterable<DecoratorApplication>,
+): Record<string, string[]> =>
+  pipe(
+    decorators,
+    map((decorator): [string, string[]] => [
+      decorator.decorator.name,
+      decorator.args.map((arg) => {
+        const value = arg.jsValue;
+        return JSON.stringify(isNumeric(value) ? value.asNumber() : value);
       }),
-    ),
+    ]),
+    reduce(toObject()),
   );
 
-const emitArbitrary = (
-  name: string,
-  options?: Iterable<[string, string]> | string,
-) => {
-  const optionsString =
-    typeof options === "string"
-      ? options
-      : pipe(
-          options ?? [],
-          map(([key, value]) => `${key}: ${value},`),
-          join("\n"),
-        );
-  if (!optionsString) {
-    return `fc.${name}()`;
+const emitOptions = (
+  properties: Record<string, string | undefined>,
+  { emitEmpty = false }: { emitEmpty?: boolean } = {},
+): string => {
+  const options = pipe(
+    entries(properties),
+    filter(([, value]) => value !== undefined),
+    map(([key, value]) => `${key}: ${value},`),
+    join("\n"),
+  );
+  if (!options) {
+    return emitEmpty ? "{}" : "";
   }
 
-  return [
-    `fc.${name}(${typeof options === "string" ? "" : "{"}`,
-    indent(optionsString),
-    `${typeof options === "string" ? "" : "}"})`,
-  ].join("\n");
+  return ["{", indent(options), "}"].join("\n");
 };
 
 const indent = (code: string) => indentString(code, 2, { indent: " " });
