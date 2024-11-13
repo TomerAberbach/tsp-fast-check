@@ -15,6 +15,7 @@ namespace PetStore;
 union Breed {
   beagle: {
     name: string,
+    name2: string[],
     age: int32,
     blah: boolean,
     blah2: float32,

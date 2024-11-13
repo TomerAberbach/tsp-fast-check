@@ -86,7 +86,9 @@ const emitNamespace = (namespace: Namespace): string =>
 
 const emitModel = (model: Model): string => {
   const dictionary = model.indexer
-    ? `fc.dictionary(${emitType(model.indexer.key)}, ${emitType(model.indexer.value)})`
+    ? model.indexer.key.name === "integer"
+      ? `fc.array(${emitType(model.indexer.value)})`
+      : `fc.dictionary(${emitType(model.indexer.key)}, ${emitType(model.indexer.value)})`
     : null;
   const record =
     model.properties.size > 0
