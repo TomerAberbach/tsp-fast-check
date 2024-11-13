@@ -84,18 +84,37 @@ const emitNamespace = (namespace: Namespace): string =>
     "}",
   ].join("\n");
 
-const emitModel = (model: Model): string =>
-  `fc.record(${emitOptions(
-    pipe(
-      model.properties,
-      map(([name, property]): [string, string] => [
-        name,
-        emitType(property.type, property.decorators),
-      ]),
-      reduce(toObject()),
-    ),
-    { emitEmpty: true },
-  )})`;
+const emitModel = (model: Model): string => {
+  const dictionary = model.indexer
+    ? `fc.dictionary(${emitType(model.indexer.key)}, ${emitType(model.indexer.value)})`
+    : null;
+  const record =
+    model.properties.size > 0
+      ? `fc.record(${emitOptions(
+          pipe(
+            model.properties,
+            map(([name, property]): [string, string] => [
+              name,
+              emitType(property.type, property.decorators),
+            ]),
+            reduce(toObject()),
+          ),
+          { emitEmpty: true },
+        )})`
+      : null;
+  if (dictionary && !record) {
+    return dictionary;
+  } else if (!dictionary && record) {
+    return record;
+  } else {
+    return [
+      "fc.tuple(",
+      indent(`${dictionary},`),
+      indent(`${record},`),
+      ").map(([dictionary, record]) => ({ ...dictionary, ...record }))",
+    ].join("\n");
+  }
+};
 
 const emitUnion = (union: Union): string =>
   [

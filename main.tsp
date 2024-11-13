@@ -19,6 +19,7 @@ union Breed {
     blah: boolean,
     blah2: float32,
     blah3: float64,
+    blah4: Record<string>,
   },
   shepherd: {
     name2: string,
@@ -27,8 +28,7 @@ union Breed {
   },
   retriever: {
     name3: string,
-    age: int32,
-  },
+  } & Record<string>,
 }
 
 model Blah {
