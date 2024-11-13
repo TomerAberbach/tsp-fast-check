@@ -160,10 +160,19 @@ const emitScalar = (
         min: -2_147_483_648,
         max: 2_147_483_647,
       });
+    case "int64":
+      return emitBigInteger(scalar, decorators, {
+        min: -9_223_372_036_854_775_808n,
+        max: 9_223_372_036_854_775_807n,
+      });
+    case "integer":
+      return emitBigInteger(scalar, decorators);
     case "float32":
       return emitFloat(scalar, decorators);
+    case "float":
     case "float64":
     case "decimal":
+    case "decimal128":
       return emitDouble(scalar, decorators);
     case "string":
       return emitString(scalar, decorators);
@@ -193,6 +202,31 @@ const emitInteger = (
     ),
   })})`;
 };
+
+const emitBigInteger = (
+  integer: Scalar,
+  decorators: DecoratorApplication[],
+  { min, max }: { min?: bigint; max?: bigint } = {},
+) => {
+  const nameToDecorator = getNameToDecorator(
+    concat(decorators, integer.decorators),
+  );
+  return `fc.bigInt(${emitOptions({
+    min: getDecoratorValue(
+      min == null
+        ? null
+        : bigIntMax(min, BigInt(String(nameToDecorator.$minValue?.[0] ?? min))),
+    ),
+    max: getDecoratorValue(
+      max == null
+        ? null
+        : bigIntMin(max, BigInt(String(nameToDecorator.$maxValue?.[0] ?? max))),
+    ),
+  })})`;
+};
+
+const bigIntMax = (a: bigint, b: bigint) => (a > b ? a : b);
+const bigIntMin = (a: bigint, b: bigint) => (a < b ? a : b);
 
 const emitFloat = (float: Scalar, decorators: DecoratorApplication[]) => {
   const nameToDecorator = getNameToDecorator(
@@ -240,11 +274,22 @@ const getNameToDecorator = (
   );
 
 const getDecoratorValue = (
-  value: DecoratorArgument["jsValue"],
-): string | null =>
-  value == null
-    ? null
-    : JSON.stringify(isNumeric(value) ? value.asNumber() : value);
+  value: DecoratorArgument["jsValue"] | bigint,
+): string | null => {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === "bigint") {
+    return `${value}n`;
+  }
+
+  if (isNumeric(value)) {
+    return String(value.asNumber() ?? `${value.asBigInt()}n`);
+  }
+
+  return JSON.stringify(value);
+};
 
 const emitOptions = (
   properties: Record<string, string | undefined | null>,

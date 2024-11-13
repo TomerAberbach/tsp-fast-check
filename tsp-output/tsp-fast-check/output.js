@@ -10,6 +10,11 @@ export const Pets = {
   Pet: fc.record({
     breed: fc.oneof(
       fc.record({
+        int64: fc.bigInt({
+          min: -9223372036854775808n,
+          max: 9223372036854775807n,
+        }),
+        integer: fc.bigInt(),
         decimal: fc.double(),
         url: fc.webUrl(),
         bytes: fc.int8Array(),

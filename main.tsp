@@ -14,6 +14,8 @@ namespace PetStore;
 
 union Breed {
   beagle: {
+    int64: int64,
+    integer: integer,
     decimal: decimal,
     url: url,
     bytes: bytes,
