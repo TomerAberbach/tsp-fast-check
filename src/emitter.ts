@@ -47,7 +47,10 @@ export async function $onEmit(context: EmitContext) {
   });
 }
 
-const emitType = (type: Type, decorators: DecoratorApplication[] = []): string => {
+const emitType = (
+  type: Type,
+  decorators: DecoratorApplication[] = [],
+): string => {
   switch (type.kind) {
     case "Namespace":
       return emitNamespace(type);
@@ -78,69 +81,92 @@ const emitNamespace = (namespace: Namespace): string =>
   ].join("\n");
 
 const emitModel = (model: Model): string =>
-  [
-    "fc.record({",
-    indent(
-      pipe(
-        model.properties,
-        map(([name, property]) => `${name}: ${emitType(property.type, property.decorators)},`),
-        join("\n"),
-      ),
+  emitArbitrary(
+    "record",
+    pipe(
+      model.properties,
+      map(([name, property]): [string, string] => [
+        name,
+        emitType(property.type, property.decorators),
+      ]),
     ),
-    "})",
-  ].join("\n");
+  );
 
 const emitUnion = (union: Union): string =>
-  [
-    "fc.oneof(",
-    indent(
-      pipe(
-        union.variants,
-        map(([, variant]) => `${emitType(variant.type)},`),
-        join("\n"),
-      ),
+  emitArbitrary(
+    "oneof",
+    pipe(
+      union.variants,
+      map(([, variant]) => `${emitType(variant.type)},`),
+      join("\n"),
     ),
-    ")",
-  ].join("\n");
+  );
 
 const emitEnum = ($enum: Enum): string =>
-  `fc.constantFrom(${pipe(
-    $enum.members,
-    map(([, member]) => JSON.stringify(member.value)),
-    join(", "),
-  )})`;
+  emitArbitrary(
+    "constantFrom",
+    pipe(
+      $enum.members,
+      map(([, member]) => `${JSON.stringify(member.value)},`),
+      join("\n"),
+    ),
+  );
 
-const emitScalar = (scalar: Scalar, decorators: DecoratorApplication[] = []): string => {
+const emitScalar = (
+  scalar: Scalar,
+  decorators: DecoratorApplication[] = [],
+): string => {
   switch (scalar.name) {
     case "int32":
-      return "fc.integer()";
+      return emitArbitrary("integer");
     case "string":
       return emitString(scalar, decorators);
   }
   throw new Error(`Unhandled Scalar: ${scalar.name}`);
 };
 
-const emitString = (string: Scalar, decorators: DecoratorApplication[]): string => {
-  const options = pipe(
-    concat(decorators, string.decorators),
-    filterMap((decorator): [string, string] | null => {
-      switch (decorator.decorator.name) {
-        case "$minLength":
-          return ["minLength", String(Number(decorator.args[0]?.jsValue))];
-        case "$maxLength":
-          return ["maxLength", String(Number(decorator.args[0]?.jsValue))];
-      }
+const emitString = (
+  string: Scalar,
+  decorators: DecoratorApplication[],
+): string =>
+  emitArbitrary(
+    "string",
+    pipe(
+      concat(decorators, string.decorators),
+      filterMap((decorator): [string, string] | null => {
+        switch (decorator.decorator.name) {
+          case "$minLength":
+            return ["minLength", String(Number(decorator.args[0]?.jsValue))];
+          case "$maxLength":
+            return ["maxLength", String(Number(decorator.args[0]?.jsValue))];
+        }
 
-      return null;
-    }),
-    map(([key, value]) => `${key}: ${value},`),
-    join("\n"),
+        return null;
+      }),
+    ),
   );
-  if (!options) {
-    return "fc.string()";
+
+const emitArbitrary = (
+  name: string,
+  options?: Iterable<[string, string]> | string,
+) => {
+  const optionsString =
+    typeof options === "string"
+      ? options
+      : pipe(
+          options ?? [],
+          map(([key, value]) => `${key}: ${value},`),
+          join("\n"),
+        );
+  if (!optionsString) {
+    return `fc.${name}()`;
   }
 
-  return ["fc.string({", indent(options), "})"].join("\n");
+  return [
+    `fc.${name}(${typeof options === "string" ? "" : "{"}`,
+    indent(optionsString),
+    `${typeof options === "string" ? "" : "}"})`,
+  ].join("\n");
 };
 
 const indent = (code: string) => indentString(code, 2, { indent: " " });
