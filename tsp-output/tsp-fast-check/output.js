@@ -10,6 +10,7 @@ export const Pets = {
   Pet: fc.record({
     breed: fc.oneof(
       fc.record({
+        decimal: fc.double(),
         url: fc.webUrl(),
         bytes: fc.int8Array(),
         name: fc.string(),

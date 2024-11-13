@@ -163,6 +163,7 @@ const emitScalar = (
     case "float32":
       return emitFloat(scalar, decorators);
     case "float64":
+    case "decimal":
       return emitDouble(scalar, decorators);
     case "string":
       return emitString(scalar, decorators);
