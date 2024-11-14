@@ -1,8 +1,9 @@
-import { createTypeSpecLibrary } from "@typespec/compiler";
+import { createTypeSpecLibrary } from '@typespec/compiler'
 
 export const $lib = createTypeSpecLibrary({
-  name: "tsp-fast-check",
+  name: `tsp-fast-check`,
   diagnostics: {},
-});
+})
 
-export const { reportDiagnostic, createDiagnostic } = $lib;
+// eslint-disable-next-line typescript/unbound-method
+export const { reportDiagnostic, createDiagnostic } = $lib

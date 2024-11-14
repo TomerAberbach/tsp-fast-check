@@ -1,52 +1,48 @@
 {
   "name": "tsp-fast-check",
   "version": "0.1.0",
+  "author": {
+    "name": "Tomer Aberbach",
+    "email": "tomer@aberba.ch",
+    "url": "https://tomeraberba.ch"
+  },
   "type": "module",
-  "main": "dist/src/index.js",
+  "engines": {
+    "node": ">= 18"
+  },
   "exports": {
-    ".": {
-      "typespec": "./main.tsp",
-      "types": "./dist/src/index.d.ts",
-      "default": "./dist/src/index.js"
-    },
-    "./testing": {
-      "types": "./dist/src/testing/index.d.ts",
-      "default": "./dist/src/testing/index.js"
-    }
+    "types": "./dist/index.d.ts",
+    "import": "./dist/index.js"
   },
+  "types": "./dist/index.d.ts",
+  "module": "./dist/index.js",
   "scripts": {
+    "prepare": "tomer install",
+    "format": "tomer format",
+    "lint": "tomer lint",
+    "typecheck": "tomer typecheck",
+    "test": "tomer test",
+    "build": "tomer build",
     "compile": "tsp compile . --emit=tsp-fast-check",
-    "build": "tsc",
-    "watch": "tsc --watch",
-    "test": "node --test",
-    "lint": "eslint src/ test/ --report-unused-disable-directives --max-warnings=0",
-    "lint:fix": "eslint . --report-unused-disable-directives --fix",
-    "format": "prettier .  --write",
-    "format:check": "prettier --check ."
+    "clean": "tomer clean dist",
+    "prepublishOnly": "tomer build"
   },
+  "prettier": "tomer/prettier",
   "dependencies": {
     "dedent": "^1.5.3",
-    "fast-check": "^3.23.1",
     "indent-string": "^5.0.0",
     "keyalesce": "^2.0.0",
     "lfi": "^3.5.1",
     "pascalcase": "^2.0.0",
-    "toposort": "^2.0.2",
-    "yaml": "^2.6.0"
+    "toposort": "^2.0.2"
   },
   "peerDependencies": {
-    "@typespec/compiler": "^0.62.0",
-    "@typespec/http": "^0.62.0",
-    "@typespec/openapi": "^0.62.0",
-    "@typespec/openapi3": "^0.62.0",
-    "@typespec/rest": "^0.62.0"
+    "@typespec/compiler": "^0.62.0"
   },
   "devDependencies": {
     "@types/node": "latest",
     "@types/pascalcase": "^1.0.3",
     "@types/toposort": "^2.0.7",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0",
     "@typespec/compiler": "^0.62.0",
     "@typespec/http": "^0.62.0",
     "@typespec/openapi": "^0.62.0",
@@ -54,7 +50,9 @@
     "@typespec/rest": "^0.62.0",
     "@typespec/versioning": "^0.62.0",
     "eslint": "^8.45.0",
+    "fast-check": "^3.23.1",
     "prettier": "^3.0.3",
+    "tomer": "^4.4.2",
     "typescript": "^5.6.3"
   }
 }

@@ -1,20 +1,19 @@
-import {
+/* eslint-disable typescript/switch-exhaustiveness-check, typescript/prefer-nullish-coalescing */
+import type {
+  DecoratorApplication,
+  DecoratorArgument,
   EmitContext,
-  emitFile,
-  resolvePath,
-  Type,
-  Namespace,
   Enum,
   Model,
-  Union,
+  Namespace,
   Scalar,
-  DecoratorApplication,
-  isNumeric,
-  DecoratorArgument,
-} from "@typespec/compiler";
-import pascalCase from "pascalcase";
-import dedent from "dedent";
-import indentString from "indent-string";
+  Type,
+  Union,
+} from '@typespec/compiler'
+import { emitFile, isNumeric, resolvePath } from '@typespec/compiler'
+import pascalCase from 'pascalcase'
+import dedent from 'dedent'
+import indentString from 'indent-string'
 import {
   concat,
   entries,
@@ -28,28 +27,28 @@ import {
   toArray,
   toMap,
   values,
-} from "lfi";
-import toposort from "toposort";
-import keyalesce from "keyalesce";
+} from 'lfi'
+import toposort from 'toposort'
+import keyalesce from 'keyalesce'
 
-export async function $onEmit(context: EmitContext) {
+export async function $onEmit(context: EmitContext): Promise<void> {
   if (context.program.compilerOptions.noEmit) {
-    return;
+    return
   }
 
   const arbitraryNamespace = convertNamespace(
     context.program.getGlobalNamespaceType(),
-  );
-  const sharedArbitraries = collectSharedArbitraries(arbitraryNamespace);
+  )
+  const sharedArbitraries = collectSharedArbitraries(arbitraryNamespace)
 
   await emitFile(context.program, {
-    path: resolvePath(context.emitterOutputDir, "arbitraries.js"),
+    path: resolvePath(context.emitterOutputDir, `arbitraries.js`),
     content: dedent`
       import * as fc from "fast-check"
 
       ${stringifyNamespace(arbitraryNamespace, sharedArbitraries)}
     `,
-  });
+  })
 }
 
 const convertNamespace = (namespace: Namespace): ArbitraryNamespace => {
@@ -65,13 +64,13 @@ const convertNamespace = (namespace: Namespace): ArbitraryNamespace => {
       convertType(type, { propertyName: name }),
     ]),
     reduce(toMap()),
-  );
+  )
   return {
     name: namespace.name,
     namespaces: pipe(
       namespace.namespaces,
       values,
-      filter((namespace) => namespace.name !== "TypeSpec"),
+      filter(namespace => namespace.name !== `TypeSpec`),
       map(convertNamespace),
       reduce(toArray()),
     ),
@@ -81,57 +80,57 @@ const convertNamespace = (namespace: Namespace): ArbitraryNamespace => {
       map(([name, arbitrary]): [Arbitrary, string] => [arbitrary, name]),
       reduce(toMap()),
     ),
-  };
-};
+  }
+}
 
 const convertType = (type: Type, options?: ConvertTypeOptions): Arbitrary => {
-  let arbitrary: Arbitrary;
+  let arbitrary: Arbitrary
   switch (type.kind) {
-    case "Model":
-      arbitrary = convertModel(type, options);
-      break;
-    case "Union":
-      arbitrary = convertUnion(type, options);
-      break;
-    case "Enum":
-      arbitrary = convertEnum(type, options);
-      break;
-    case "Scalar":
-      arbitrary = convertScalar(type, options);
-      break;
+    case `Model`:
+      arbitrary = convertModel(type, options)
+      break
+    case `Union`:
+      arbitrary = convertUnion(type, options)
+      break
+    case `Enum`:
+      arbitrary = convertEnum(type, options)
+      break
+    case `Scalar`:
+      arbitrary = convertScalar(type, options)
+      break
     default:
-      throw new Error(`Unhandled type: ${type.kind}`);
+      throw new Error(`Unhandled type: ${type.kind}`)
   }
 
   const arbitraryKey = keyalesce([
     arbitrary.name,
     arbitrary.code,
     ...pipe(arbitrary.placeholders, flatten),
-  ]);
-  let cachedArbitrary = cachedArbitraries.get(arbitraryKey);
+  ])
+  let cachedArbitrary = cachedArbitraries.get(arbitraryKey)
   if (!cachedArbitrary) {
-    cachedArbitrary = arbitrary;
-    cachedArbitraries.set(arbitraryKey, cachedArbitrary);
+    cachedArbitrary = arbitrary
+    cachedArbitraries.set(arbitraryKey, cachedArbitrary)
   }
-  return cachedArbitrary;
-};
+  return cachedArbitrary
+}
 type ConvertTypeOptions = {
-  propertyName?: string;
-  decorators?: DecoratorApplication[];
-};
+  propertyName?: string
+  decorators?: DecoratorApplication[]
+}
 
-const cachedArbitraries = new Map<object, Arbitrary>();
+const cachedArbitraries = new Map<object, Arbitrary>()
 
 const convertModel = (
   model: Model,
   { propertyName }: ConvertTypeOptions = {},
 ): Arbitrary =>
-  createArbitrary(model.name || propertyName || "Model", (emitType) => {
+  createArbitrary(model.name || propertyName || `Model`, emitType => {
     const dictionary = model.indexer
-      ? model.indexer.key.name === "integer"
+      ? model.indexer.key.name === `integer`
         ? `fc.array(${emitType(model.indexer.value)})`
         : `fc.dictionary(${emitType(model.indexer.key)}, ${emitType(model.indexer.value)})`
-      : null;
+      : null
     const record =
       model.properties.size > 0
         ? `fc.record(${emitOptions(
@@ -148,28 +147,28 @@ const convertModel = (
             ),
             { emitEmpty: true },
           )})`
-        : null;
+        : null
     if (dictionary && !record) {
-      return dictionary;
+      return dictionary
     } else if (!dictionary && record) {
-      return record;
+      return record
     } else {
       return [
-        "fc.tuple(",
+        `fc.tuple(`,
         indent(`${dictionary},`),
         indent(`${record},`),
-        ").map(([dictionary, record]) => ({ ...dictionary, ...record }))",
-      ].join("\n");
+        `).map(([dictionary, record]) => ({ ...dictionary, ...record }))`,
+      ].join(`\n`)
     }
-  });
+  })
 
 const convertUnion = (
   union: Union,
   { propertyName }: ConvertTypeOptions = {},
 ): Arbitrary =>
-  createArbitrary(union.name || propertyName || "Union", (emitType) =>
+  createArbitrary(union.name || propertyName || `Union`, emitType =>
     [
-      "fc.oneof(",
+      `fc.oneof(`,
       indent(
         pipe(
           union.variants,
@@ -180,102 +179,103 @@ const convertUnion = (
                 decorators: variant.decorators,
               })},`,
           ),
-          join("\n"),
+          join(`\n`),
         ),
       ),
-      ")",
-    ].join("\n"),
-  );
+      `)`,
+    ].join(`\n`),
+  )
 
 const convertEnum = (
   $enum: Enum,
   { propertyName }: ConvertTypeOptions = {},
 ): Arbitrary =>
   createArbitrary(
-    $enum.name || propertyName || "enum",
+    $enum.name || propertyName || `enum`,
     [
-      "fc.constantFrom(",
+      `fc.constantFrom(`,
       indent(
         pipe(
           $enum.members,
           map(([, member]) => `${JSON.stringify(member.value)},`),
-          join("\n"),
+          join(`\n`),
         ),
       ),
-      ")",
-    ].join("\n"),
-  );
+      `)`,
+    ].join(`\n`),
+  )
 
 const convertScalar = (
   scalar: Scalar,
   options?: ConvertTypeOptions,
 ): Arbitrary => {
-  const arbitraryName = options?.propertyName || scalar.name || "Scalar";
+  const arbitraryName = options?.propertyName || scalar.name || `Scalar`
   switch (scalar.name) {
-    case "boolean":
-      return createArbitrary(arbitraryName, "fc.boolean()");
-    case "int8":
-      return convertInteger(scalar, options, { min: -128, max: 127 });
-    case "int16":
-      return convertInteger(scalar, options, { min: -32_768, max: 32_767 });
-    case "int32":
+    case `boolean`:
+      return createArbitrary(arbitraryName, `fc.boolean()`)
+    case `int8`:
+      return convertInteger(scalar, options, { min: -128, max: 127 })
+    case `int16`:
+      return convertInteger(scalar, options, { min: -32_768, max: 32_767 })
+    case `int32`:
       return convertInteger(scalar, options, {
         min: -2_147_483_648,
         max: 2_147_483_647,
-      });
-    case "int64":
+      })
+    case `int64`:
       return convertBigInteger(scalar, options, {
         min: -9_223_372_036_854_775_808n,
         max: 9_223_372_036_854_775_807n,
-      });
-    case "integer":
-      return convertBigInteger(scalar, options);
-    case "float32":
-      return convertTypeFloat(scalar, options);
-    case "float":
-    case "float64":
-    case "decimal":
-    case "decimal128":
-      return convertDouble(scalar, options);
-    case "string":
-      return convertString(scalar, options);
-    case "bytes":
-      return createArbitrary(arbitraryName, "fc.int8Array()");
-    case "url":
-      return createArbitrary(arbitraryName, "fc.webUrl()");
+      })
+    case `integer`:
+      return convertBigInteger(scalar, options)
+    case `float32`:
+      return convertTypeFloat(scalar, options)
+    case `float`:
+    case `float64`:
+    case `decimal`:
+    case `decimal128`:
+      return convertDouble(scalar, options)
+    case `string`:
+      return convertString(scalar, options)
+    case `bytes`:
+      return createArbitrary(arbitraryName, `fc.int8Array()`)
+    case `url`:
+      return createArbitrary(arbitraryName, `fc.webUrl()`)
   }
 
-  throw new Error(`Unhandled Scalar: ${scalar.name}`);
-};
+  throw new Error(`Unhandled Scalar: ${scalar.name}`)
+}
 
 const convertInteger = (
   integer: Scalar,
+  // eslint-disable-next-line typescript/default-param-last
   { decorators = [] }: ConvertTypeOptions = {},
   { min, max }: { min: number; max: number },
 ): Arbitrary => {
   const nameToDecorator = getNameToDecorator(
     concat(decorators, integer.decorators),
-  );
+  )
   return createArbitrary(
     integer.name,
     `fc.integer(${emitOptions(
       new Map([
         [
-          "min",
+          `min`,
           getDecoratorValue(
-            Math.max(min, Number(nameToDecorator.get("$minValue")?.[0] ?? min)),
+            Math.max(min, Number(nameToDecorator.get(`$minValue`)?.[0] ?? min)),
           ),
         ],
         [
-          "max",
+          `max`,
           getDecoratorValue(
-            Math.min(max, Number(nameToDecorator.get("$maxValue")?.[0] ?? max)),
+            Math.min(max, Number(nameToDecorator.get(`$maxValue`)?.[0] ?? max)),
           ),
         ],
       ]),
     )})`,
-  );
-};
+  )
+}
 
 const convertBigInteger = (
   integer: Scalar,
@@ -284,40 +284,42 @@ const convertBigInteger = (
 ): Arbitrary => {
   const nameToDecorator = getNameToDecorator(
     concat(decorators, integer.decorators),
-  );
+  )
   return createArbitrary(
     integer.name,
     `fc.bigInt(${emitOptions(
       new Map([
         [
-          "min",
+          `min`,
           getDecoratorValue(
             min == null
               ? null
               : bigIntMax(
                   min,
-                  BigInt(String(nameToDecorator.get("$minValue")?.[0] ?? min)),
+                  // eslint-disable-next-line typescript/no-base-to-string
+                  BigInt(String(nameToDecorator.get(`$minValue`)?.[0] ?? min)),
                 ),
           ),
         ],
         [
-          "max",
+          `max`,
           getDecoratorValue(
             max == null
               ? null
               : bigIntMin(
                   max,
-                  BigInt(String(nameToDecorator.get("$maxValue")?.[0] ?? max)),
+                  // eslint-disable-next-line typescript/no-base-to-string
+                  BigInt(String(nameToDecorator.get(`$maxValue`)?.[0] ?? max)),
                 ),
           ),
         ],
       ]),
     )})`,
-  );
-};
+  )
+}
 
-const bigIntMax = (a: bigint, b: bigint) => (a > b ? a : b);
-const bigIntMin = (a: bigint, b: bigint) => (a < b ? a : b);
+const bigIntMax = (a: bigint, b: bigint) => (a > b ? a : b)
+const bigIntMin = (a: bigint, b: bigint) => (a < b ? a : b)
 
 const convertTypeFloat = (
   float: Scalar,
@@ -325,17 +327,17 @@ const convertTypeFloat = (
 ): Arbitrary => {
   const nameToDecorator = getNameToDecorator(
     concat(decorators, float.decorators),
-  );
+  )
   return createArbitrary(
     float.name,
     `fc.float(${emitOptions(
       new Map([
-        ["min", getDecoratorValue(nameToDecorator.get("$minValue")?.[0])],
-        ["max", getDecoratorValue(nameToDecorator.get("$maxValue")?.[0])],
+        [`min`, getDecoratorValue(nameToDecorator.get(`$minValue`)?.[0])],
+        [`max`, getDecoratorValue(nameToDecorator.get(`$maxValue`)?.[0])],
       ]),
     )})`,
-  );
-};
+  )
+}
 
 const convertDouble = (
   double: Scalar,
@@ -343,17 +345,17 @@ const convertDouble = (
 ): Arbitrary => {
   const nameToDecorator = getNameToDecorator(
     concat(decorators, double.decorators),
-  );
+  )
   return createArbitrary(
     double.name,
     `fc.double(${emitOptions(
       new Map([
-        ["min", getDecoratorValue(nameToDecorator.get("$minValue")?.[0])],
-        ["max", getDecoratorValue(nameToDecorator.get("$maxValue")?.[0])],
+        [`min`, getDecoratorValue(nameToDecorator.get(`$minValue`)?.[0])],
+        [`max`, getDecoratorValue(nameToDecorator.get(`$maxValue`)?.[0])],
       ]),
     )})`,
-  );
-};
+  )
+}
 
 const convertString = (
   string: Scalar,
@@ -361,53 +363,53 @@ const convertString = (
 ): Arbitrary => {
   const nameToDecorator = getNameToDecorator(
     concat(decorators, string.decorators),
-  );
+  )
   return createArbitrary(
     string.name,
     `fc.string(${emitOptions(
       new Map([
         [
-          "minLength",
-          getDecoratorValue(nameToDecorator.get("$minLength")?.[0]),
+          `minLength`,
+          getDecoratorValue(nameToDecorator.get(`$minLength`)?.[0]),
         ],
         [
-          "maxLength",
-          getDecoratorValue(nameToDecorator.get("$maxLength")?.[0]),
+          `maxLength`,
+          getDecoratorValue(nameToDecorator.get(`$maxLength`)?.[0]),
         ],
       ]),
     )})`,
-  );
-};
+  )
+}
 
 const getNameToDecorator = (
   decorators: Iterable<DecoratorApplication>,
-): Map<string, DecoratorArgument["jsValue"][]> =>
+): Map<string, DecoratorArgument[`jsValue`][]> =>
   pipe(
     decorators,
-    map((decorator): [string, DecoratorArgument["jsValue"][]] => [
+    map((decorator): [string, DecoratorArgument[`jsValue`][]] => [
       decorator.decorator.name,
-      decorator.args.map((arg) => arg.jsValue),
+      decorator.args.map(arg => arg.jsValue),
     ]),
     reduce(toMap()),
-  );
+  )
 
 const getDecoratorValue = (
-  value: DecoratorArgument["jsValue"] | undefined | bigint,
+  value: DecoratorArgument[`jsValue`] | undefined | bigint,
 ): string | null => {
   if (value == null) {
-    return null;
+    return null
   }
 
-  if (typeof value === "bigint") {
-    return `${value}n`;
+  if (typeof value === `bigint`) {
+    return `${value}n`
   }
 
   if (isNumeric(value)) {
-    return String(value.asNumber() ?? `${value.asBigInt()}n`);
+    return String(value.asNumber() ?? `${value.asBigInt()}n`)
   }
 
-  return JSON.stringify(value);
-};
+  return JSON.stringify(value)
+}
 
 const emitOptions = (
   properties: Map<string, string | undefined | null>,
@@ -417,16 +419,16 @@ const emitOptions = (
     entries(properties),
     filter(([, value]) => value != null),
     map(([key, value]) => `${key}: ${value},`),
-    join("\n"),
-  );
+    join(`\n`),
+  )
   if (!options) {
-    return emitEmpty ? "{}" : "";
+    return emitEmpty ? `{}` : ``
   }
 
-  return ["{", indent(options), "}"].join("\n");
-};
+  return [`{`, indent(options), `}`].join(`\n`)
+}
 
-const indent = (code: string) => indentString(code, 2, { indent: " " });
+const indent = (code: string) => indentString(code, 2, { indent: ` ` })
 
 const createArbitrary = (
   name: string,
@@ -436,57 +438,57 @@ const createArbitrary = (
         emitType: (...args: Parameters<typeof convertType>) => string,
       ) => string),
 ): Arbitrary => {
-  name = pascalCase(name);
+  name = pascalCase(name)
 
-  if (typeof codeOrFn === "string") {
-    return { name, code: codeOrFn, placeholders: new Map() };
+  if (typeof codeOrFn === `string`) {
+    return { name, code: codeOrFn, placeholders: new Map() }
   }
 
-  let index = 0;
-  const placeholders = new Map<string, Arbitrary>();
+  let index = 0
+  const placeholders = new Map<string, Arbitrary>()
   return {
     name,
     code: codeOrFn((type, options) => {
-      const placeholder = `$${index++}`;
-      placeholders.set(placeholder, convertType(type, options));
-      return placeholder;
+      const placeholder = `$${index++}`
+      placeholders.set(placeholder, convertType(type, options))
+      return placeholder
     }),
     placeholders,
-  };
-};
+  }
+}
 
 const collectSharedArbitraries = (
   namespace: ArbitraryNamespace,
 ): Map<Arbitrary, string> => {
-  const arbitraryReferenceCounts = new Map<Arbitrary, number>();
-  const allArbitraries = new Set<Arbitrary>();
+  const arbitraryReferenceCounts = new Map<Arbitrary, number>()
+  const allArbitraries = new Set<Arbitrary>()
 
-  const remainingNamespaces = [namespace];
+  const remainingNamespaces = [namespace]
   do {
-    const namespace = remainingNamespaces.pop()!;
-    remainingNamespaces.push(...namespace.namespaces);
+    const namespace = remainingNamespaces.pop()!
+    remainingNamespaces.push(...namespace.namespaces)
 
     for (const namespaceArbitrary of namespace.arbitraryToName.keys()) {
       arbitraryReferenceCounts.set(
         namespaceArbitrary,
         (arbitraryReferenceCounts.get(namespaceArbitrary) ?? 0) + 1,
-      );
+      )
     }
 
-    const remainingArbitraries = [...namespace.arbitraryToName.keys()];
+    const remainingArbitraries = [...namespace.arbitraryToName.keys()]
     while (remainingArbitraries.length > 0) {
-      const arbitrary = remainingArbitraries.pop()!;
-      allArbitraries.add(arbitrary);
+      const arbitrary = remainingArbitraries.pop()!
+      allArbitraries.add(arbitrary)
 
       for (const referencedArbitrary of arbitrary.placeholders.values()) {
-        remainingArbitraries.push(referencedArbitrary);
+        remainingArbitraries.push(referencedArbitrary)
         arbitraryReferenceCounts.set(
           referencedArbitrary,
           (arbitraryReferenceCounts.get(referencedArbitrary) ?? 0) + 1,
-        );
+        )
       }
     }
-  } while (remainingNamespaces.length > 0);
+  } while (remainingNamespaces.length > 0)
 
   const sharedArbitraryDependencyGraph = pipe(
     allArbitraries,
@@ -504,46 +506,46 @@ const collectSharedArbitraries = (
             ),
     ),
     reduce(toArray()),
-  );
+  )
   const sortedSharedArbitraries = toposort(
     sharedArbitraryDependencyGraph,
-  ).reverse();
+  ).reverse()
 
-  const nextIndices = new Map<string, number>();
+  const nextIndices = new Map<string, number>()
   return pipe(
     sortedSharedArbitraries,
-    filter((arbitrary) => (arbitraryReferenceCounts.get(arbitrary) ?? 0) >= 2),
+    filter(arbitrary => (arbitraryReferenceCounts.get(arbitrary) ?? 0) >= 2),
     map((arbitrary): [Arbitrary, string] => {
-      let name = namespace.arbitraryToName.get(arbitrary) ?? arbitrary.name;
-      const nextIndex = nextIndices.get(name);
+      let name = namespace.arbitraryToName.get(arbitrary) ?? arbitrary.name
+      const nextIndex = nextIndices.get(name)
       if (nextIndex == null) {
-        nextIndices.set(name, 0);
+        nextIndices.set(name, 0)
       } else {
-        nextIndices.set(name, nextIndex + 1);
-        name += nextIndex;
+        nextIndices.set(name, nextIndex + 1)
+        name += nextIndex
       }
 
-      return [arbitrary, name];
+      return [arbitrary, name]
     }),
     reduce(toMap()),
-  );
-};
+  )
+}
 
 const stringifyNamespace = (
   namespace: ArbitraryNamespace,
   sharedArbitraries: Map<Arbitrary, string>,
 ): string => {
   if (!namespace.name) {
-    return stringifyTopLevelNamespace(namespace, sharedArbitraries);
+    return stringifyTopLevelNamespace(namespace, sharedArbitraries)
   }
 
   return [
-    "{",
+    `{`,
     indent(
       pipe(
         concat(
           map(
-            (namespace) =>
+            namespace =>
               `${namespace.name}: ${stringifyNamespace(namespace, sharedArbitraries)},`,
             namespace.namespaces,
           ),
@@ -553,12 +555,12 @@ const stringifyNamespace = (
             entries(namespace.nameToArbitrary),
           ),
         ),
-        join("\n\n"),
+        join(`\n\n`),
       ),
     ),
-    "}",
-  ].join("\n");
-};
+    `}`,
+  ].join(`\n`)
+}
 
 const stringifyTopLevelNamespace = (
   namespace: ArbitraryNamespace,
@@ -568,11 +570,11 @@ const stringifyTopLevelNamespace = (
     concat(
       map(
         ([arbitrary, name]) =>
-          `${namespace.arbitraryToName.has(arbitrary) ? "export " : ""}const ${name} = ${stringifyArbitraryDefinition(arbitrary, sharedArbitraries)};\n`,
+          `${namespace.arbitraryToName.has(arbitrary) ? `export ` : ``}const ${name} = ${stringifyArbitraryDefinition(arbitrary, sharedArbitraries)};\n`,
         entries(sharedArbitraries),
       ),
       map(
-        (namespace) =>
+        namespace =>
           `export const ${namespace.name} = ${stringifyNamespace(namespace, sharedArbitraries)};\n`,
         namespace.namespaces,
       ),
@@ -585,22 +587,22 @@ const stringifyTopLevelNamespace = (
         ),
       ),
     ),
-    join("\n"),
-  );
+    join(`\n`),
+  )
 
 type ArbitraryNamespace = {
-  name: string;
-  namespaces: ArbitraryNamespace[];
-  nameToArbitrary: Map<string, Arbitrary>;
-  arbitraryToName: Map<Arbitrary, string>;
-};
+  name: string
+  namespaces: ArbitraryNamespace[]
+  nameToArbitrary: Map<string, Arbitrary>
+  arbitraryToName: Map<Arbitrary, string>
+}
 
 const stringifyArbitrary = (
   arbitrary: Arbitrary,
   sharedArbitraries: Map<Arbitrary, string>,
 ): string =>
   sharedArbitraries.get(arbitrary) ??
-  stringifyArbitraryDefinition(arbitrary, sharedArbitraries);
+  stringifyArbitraryDefinition(arbitrary, sharedArbitraries)
 
 const stringifyArbitraryDefinition = (
   arbitrary: Arbitrary,
@@ -610,10 +612,10 @@ const stringifyArbitraryDefinition = (
     (code, [name, placeholder]) =>
       code.replace(name, stringifyArbitrary(placeholder, sharedArbitraries)),
     arbitrary.code,
-  );
+  )
 
 type Arbitrary = {
-  name: string;
-  code: string;
-  placeholders: Map<string, Arbitrary>;
-};
+  name: string
+  code: string
+  placeholders: Map<string, Arbitrary>
+}
