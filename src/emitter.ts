@@ -38,15 +38,14 @@ export async function $onEmit(context: EmitContext) {
   const arbitraryNamespace = convertNamespace(
     context.program.getGlobalNamespaceType(),
   );
+  const sharedArbitraries = collectSharedArbitraries(arbitraryNamespace);
+
   await emitFile(context.program, {
     path: resolvePath(context.emitterOutputDir, "arbitraries.js"),
     content: dedent`
       import * as fc from "fc"
 
-      ${stringifyNamespace(
-        arbitraryNamespace,
-        collectSharedArbitraries(arbitraryNamespace),
-      )}
+      ${stringifyNamespace(arbitraryNamespace, sharedArbitraries)}
     `,
   });
 }
