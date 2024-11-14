@@ -12,6 +12,7 @@ import {
   isNumeric,
   DecoratorArgument,
 } from "@typespec/compiler";
+import dedent from "dedent";
 import indentString from "indent-string";
 import {
   concat,
@@ -39,10 +40,14 @@ export async function $onEmit(context: EmitContext) {
   );
   await emitFile(context.program, {
     path: resolvePath(context.emitterOutputDir, "arbitraries.js"),
-    content: `import * as fc from "fc"\n\n${stringifyNamespace(
-      arbitraryNamespace,
-      collectSharedArbitraries(arbitraryNamespace),
-    )}`,
+    content: dedent`
+      import * as fc from "fc"
+
+      ${stringifyNamespace(
+        arbitraryNamespace,
+        collectSharedArbitraries(arbitraryNamespace),
+      )}
+    `,
   });
 }
 

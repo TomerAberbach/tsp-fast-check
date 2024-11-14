@@ -25,6 +25,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "dedent": "^1.5.3",
     "fast-check": "^3.23.1",
     "indent-string": "^5.0.0",
     "lfi": "^3.5.1",
