@@ -2,11 +2,11 @@ import * as fc from 'fast-check'
 
 const String = fc.string()
 
-const PetType = fc.constantFrom(`dog`, `cat`, `fish`, `bird`, `reptile`)
+const PetType = fc.constantFrom('dog', 'cat', 'fish', 'bird', 'reptile')
 
 const Int32 = fc.integer({
-  min: -2_147_483_648,
-  max: 2_147_483_647,
+  min: -2147483648,
+  max: 2147483647,
 })
 
 const Retriever = fc
@@ -19,8 +19,8 @@ const Retriever = fc
   .map(([dictionary, record]) => ({ ...dictionary, ...record }))
 
 const Int16 = fc.integer({
-  min: -32_768,
-  max: 32_767,
+  min: -32768,
+  max: 32767,
 })
 
 const Shepherd = fc.record({
@@ -48,8 +48,8 @@ const Decimal = fc.double()
 const Integer = fc.bigInt()
 
 const Int64 = fc.bigInt({
-  min: -9_223_372_036_854_775_808n,
-  max: 9_223_372_036_854_775_807n,
+  min: -9223372036854775808n,
+  max: 9223372036854775807n,
 })
 
 const Beagle = fc.record({
@@ -98,5 +98,5 @@ export const PetStore = {
     name: String,
   }),
 
-  Breed,
+  Breed: Breed,
 }

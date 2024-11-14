@@ -1,4 +1,4 @@
-import "./dist/src/index.js";
+import "./dist/index.js";
 import "@typespec/http";
 import "@typespec/rest";
 import "@typespec/openapi3";

@@ -40,7 +40,7 @@
     "@typespec/compiler": "^0.62.0"
   },
   "devDependencies": {
-    "@types/node": "latest",
+    "@types/node": "^22.9.0",
     "@types/pascalcase": "^1.0.3",
     "@types/toposort": "^2.0.7",
     "@typespec/compiler": "^0.62.0",
