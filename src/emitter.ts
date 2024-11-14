@@ -12,6 +12,7 @@ import {
   isNumeric,
   DecoratorArgument,
 } from "@typespec/compiler";
+import pascalCase from "pascalcase";
 import dedent from "dedent";
 import indentString from "indent-string";
 import {
@@ -19,6 +20,7 @@ import {
   entries,
   filter,
   flatMap,
+  flatten,
   join,
   map,
   pipe,
@@ -27,8 +29,8 @@ import {
   toMap,
   values,
 } from "lfi";
-import memoize from "memoize";
 import toposort from "toposort";
+import keyalesce from "keyalesce";
 
 export async function $onEmit(context: EmitContext) {
   if (context.program.compilerOptions.noEmit) {
@@ -43,7 +45,7 @@ export async function $onEmit(context: EmitContext) {
   await emitFile(context.program, {
     path: resolvePath(context.emitterOutputDir, "arbitraries.js"),
     content: dedent`
-      import * as fc from "fc"
+      import * as fc from "fast-check"
 
       ${stringifyNamespace(arbitraryNamespace, sharedArbitraries)}
     `,
@@ -58,7 +60,10 @@ const convertNamespace = (namespace: Namespace): ArbitraryNamespace => {
       namespace.enums,
       namespace.scalars,
     ),
-    map(([name, type]): [string, Arbitrary] => [name, convertType(type)]),
+    map(([name, type]): [string, Arbitrary] => [
+      name,
+      convertType(type, { propertyName: name }),
+    ]),
     reduce(toMap()),
   );
   return {
@@ -79,25 +84,49 @@ const convertNamespace = (namespace: Namespace): ArbitraryNamespace => {
   };
 };
 
-const convertType = memoize(
-  (type: Type, decorators: DecoratorApplication[] = []): Arbitrary => {
-    switch (type.kind) {
-      case "Model":
-        return convertModel(type);
-      case "Union":
-        return convertUnion(type);
-      case "Enum":
-        return convertEnum(type);
-      case "Scalar":
-        return convertScalar(type, decorators);
-    }
+const convertType = (type: Type, options?: ConvertTypeOptions): Arbitrary => {
+  let arbitrary: Arbitrary;
+  switch (type.kind) {
+    case "Model":
+      arbitrary = convertModel(type, options);
+      break;
+    case "Union":
+      arbitrary = convertUnion(type, options);
+      break;
+    case "Enum":
+      arbitrary = convertEnum(type, options);
+      break;
+    case "Scalar":
+      arbitrary = convertScalar(type, options);
+      break;
+    default:
+      throw new Error(`Unhandled type: ${type.kind}`);
+  }
 
-    throw new Error(`Unhandled type: ${type.kind}`);
-  },
-);
+  const arbitraryKey = keyalesce([
+    arbitrary.name,
+    arbitrary.code,
+    ...pipe(arbitrary.placeholders, flatten),
+  ]);
+  let cachedArbitrary = cachedArbitraries.get(arbitraryKey);
+  if (!cachedArbitrary) {
+    cachedArbitrary = arbitrary;
+    cachedArbitraries.set(arbitraryKey, cachedArbitrary);
+  }
+  return cachedArbitrary;
+};
+type ConvertTypeOptions = {
+  propertyName?: string;
+  decorators?: DecoratorApplication[];
+};
 
-const convertModel = (model: Model): Arbitrary =>
-  createArbitrary(model.name || "model", (emitType) => {
+const cachedArbitraries = new Map<object, Arbitrary>();
+
+const convertModel = (
+  model: Model,
+  { propertyName }: ConvertTypeOptions = {},
+): Arbitrary =>
+  createArbitrary(model.name || propertyName || "Model", (emitType) => {
     const dictionary = model.indexer
       ? model.indexer.key.name === "integer"
         ? `fc.array(${emitType(model.indexer.value)})`
@@ -110,7 +139,10 @@ const convertModel = (model: Model): Arbitrary =>
               model.properties,
               map(([name, property]): [string, string] => [
                 name,
-                emitType(property.type, property.decorators),
+                emitType(property.type, {
+                  propertyName: name,
+                  decorators: property.decorators,
+                }),
               ]),
               reduce(toMap()),
             ),
@@ -131,14 +163,23 @@ const convertModel = (model: Model): Arbitrary =>
     }
   });
 
-const convertUnion = (union: Union): Arbitrary =>
-  createArbitrary(union.name || "union", (emitType) =>
+const convertUnion = (
+  union: Union,
+  { propertyName }: ConvertTypeOptions = {},
+): Arbitrary =>
+  createArbitrary(union.name || propertyName || "Union", (emitType) =>
     [
       "fc.oneof(",
       indent(
         pipe(
           union.variants,
-          map(([, variant]) => `${emitType(variant.type)},`),
+          map(
+            ([, variant]) =>
+              `${emitType(variant.type, {
+                propertyName: String(variant.name),
+                decorators: variant.decorators,
+              })},`,
+          ),
           join("\n"),
         ),
       ),
@@ -146,9 +187,12 @@ const convertUnion = (union: Union): Arbitrary =>
     ].join("\n"),
   );
 
-const convertEnum = ($enum: Enum): Arbitrary =>
+const convertEnum = (
+  $enum: Enum,
+  { propertyName }: ConvertTypeOptions = {},
+): Arbitrary =>
   createArbitrary(
-    $enum.name,
+    $enum.name || propertyName || "enum",
     [
       "fc.constantFrom(",
       indent(
@@ -164,40 +208,41 @@ const convertEnum = ($enum: Enum): Arbitrary =>
 
 const convertScalar = (
   scalar: Scalar,
-  decorators: DecoratorApplication[] = [],
+  options?: ConvertTypeOptions,
 ): Arbitrary => {
+  const arbitraryName = options?.propertyName || scalar.name || "Scalar";
   switch (scalar.name) {
     case "boolean":
-      return createArbitrary(scalar.name, "fc.boolean()");
+      return createArbitrary(arbitraryName, "fc.boolean()");
     case "int8":
-      return convertInteger(scalar, decorators, { min: -128, max: 127 });
+      return convertInteger(scalar, options, { min: -128, max: 127 });
     case "int16":
-      return convertInteger(scalar, decorators, { min: -32_768, max: 32_767 });
+      return convertInteger(scalar, options, { min: -32_768, max: 32_767 });
     case "int32":
-      return convertInteger(scalar, decorators, {
+      return convertInteger(scalar, options, {
         min: -2_147_483_648,
         max: 2_147_483_647,
       });
     case "int64":
-      return convertBigInteger(scalar, decorators, {
+      return convertBigInteger(scalar, options, {
         min: -9_223_372_036_854_775_808n,
         max: 9_223_372_036_854_775_807n,
       });
     case "integer":
-      return convertBigInteger(scalar, decorators);
+      return convertBigInteger(scalar, options);
     case "float32":
-      return convertTypeFloat(scalar, decorators);
+      return convertTypeFloat(scalar, options);
     case "float":
     case "float64":
     case "decimal":
     case "decimal128":
-      return convertDouble(scalar, decorators);
+      return convertDouble(scalar, options);
     case "string":
-      return convertString(scalar, decorators);
+      return convertString(scalar, options);
     case "bytes":
-      return createArbitrary(scalar.name, "fc.int8Array()");
+      return createArbitrary(arbitraryName, "fc.int8Array()");
     case "url":
-      return createArbitrary(scalar.name, "fc.webUrl()");
+      return createArbitrary(arbitraryName, "fc.webUrl()");
   }
 
   throw new Error(`Unhandled Scalar: ${scalar.name}`);
@@ -205,7 +250,7 @@ const convertScalar = (
 
 const convertInteger = (
   integer: Scalar,
-  decorators: DecoratorApplication[],
+  { decorators = [] }: ConvertTypeOptions = {},
   { min, max }: { min: number; max: number },
 ): Arbitrary => {
   const nameToDecorator = getNameToDecorator(
@@ -234,7 +279,7 @@ const convertInteger = (
 
 const convertBigInteger = (
   integer: Scalar,
-  decorators: DecoratorApplication[],
+  { decorators = [] }: ConvertTypeOptions = {},
   { min, max }: { min?: bigint; max?: bigint } = {},
 ): Arbitrary => {
   const nameToDecorator = getNameToDecorator(
@@ -276,7 +321,7 @@ const bigIntMin = (a: bigint, b: bigint) => (a < b ? a : b);
 
 const convertTypeFloat = (
   float: Scalar,
-  decorators: DecoratorApplication[],
+  { decorators = [] }: ConvertTypeOptions = {},
 ): Arbitrary => {
   const nameToDecorator = getNameToDecorator(
     concat(decorators, float.decorators),
@@ -294,7 +339,7 @@ const convertTypeFloat = (
 
 const convertDouble = (
   double: Scalar,
-  decorators: DecoratorApplication[],
+  { decorators = [] }: ConvertTypeOptions = {},
 ): Arbitrary => {
   const nameToDecorator = getNameToDecorator(
     concat(decorators, double.decorators),
@@ -312,7 +357,7 @@ const convertDouble = (
 
 const convertString = (
   string: Scalar,
-  decorators: DecoratorApplication[],
+  { decorators = [] }: ConvertTypeOptions = {},
 ): Arbitrary => {
   const nameToDecorator = getNameToDecorator(
     concat(decorators, string.decorators),
@@ -391,6 +436,8 @@ const createArbitrary = (
         emitType: (...args: Parameters<typeof convertType>) => string,
       ) => string),
 ): Arbitrary => {
+  name = pascalCase(name);
+
   if (typeof codeOrFn === "string") {
     return { name, code: codeOrFn, placeholders: new Map() };
   }
@@ -399,9 +446,9 @@ const createArbitrary = (
   const placeholders = new Map<string, Arbitrary>();
   return {
     name,
-    code: codeOrFn((type) => {
+    code: codeOrFn((type, options) => {
       const placeholder = `$${index++}`;
-      placeholders.set(placeholder, convertType(type));
+      placeholders.set(placeholder, convertType(type, options));
       return placeholder;
     }),
     placeholders,

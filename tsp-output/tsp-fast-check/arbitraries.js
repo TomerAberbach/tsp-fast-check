@@ -1,95 +1,101 @@
-import * as fc from "fc";
+import * as fc from "fast-check";
 
-const string = fc.string();
+const String = fc.string();
 
-const petType = fc.constantFrom("dog", "cat", "fish", "bird", "reptile");
+const PetType = fc.constantFrom("dog", "cat", "fish", "bird", "reptile");
 
-const int32 = fc.integer({
+const Int32 = fc.integer({
   min: -2147483648,
   max: 2147483647,
 });
 
-const model = fc
+const Retriever = fc
   .tuple(
-    fc.dictionary(string, string),
+    fc.dictionary(String, String),
     fc.record({
-      name3: string,
+      name3: String,
     }),
   )
   .map(([dictionary, record]) => ({ ...dictionary, ...record }));
 
-const int16 = fc.integer({
+const Int16 = fc.integer({
   min: -32768,
   max: 32767,
 });
 
-const model0 = fc.record({
-  name2: string,
-  age: int32,
-  age2: int16,
+const Shepherd = fc.record({
+  name2: String,
+  age: Int32,
+  age2: Int16,
 });
 
-const Record = fc.dictionary(string, string);
+const Record = fc.dictionary(String, String);
 
-const float64 = fc.double();
+const Float64 = fc.double();
 
-const float32 = fc.float();
+const Float32 = fc.float();
 
-const boolean = fc.boolean();
+const Blah = fc.boolean();
 
-const Array = fc.array(string);
+const Array = fc.array(String);
 
-const bytes = fc.int8Array();
+const Bytes = fc.int8Array();
 
-const url = fc.webUrl();
+const Url = fc.webUrl();
 
-const decimal = fc.double();
+const Decimal = fc.double();
 
-const integer = fc.bigInt();
+const Integer = fc.bigInt();
 
-const int64 = fc.bigInt({
+const Int64 = fc.bigInt({
   min: -9223372036854775808n,
   max: 9223372036854775807n,
 });
 
-const model1 = fc.record({
-  int64: int64,
-  integer: integer,
-  decimal: decimal,
-  url: url,
-  bytes: bytes,
-  name: string,
+const Beagle = fc.record({
+  int64: Int64,
+  integer: Integer,
+  decimal: Decimal,
+  url: Url,
+  bytes: Bytes,
+  name: String,
   name2: Array,
-  age: int32,
-  blah: boolean,
-  blah2: float32,
-  blah3: float64,
+  age: Int32,
+  blah: Blah,
+  blah2: Float32,
+  blah3: Float64,
   blah4: Record,
 });
 
-const Breed = fc.oneof(model1, model0, model);
+const Breed = fc.oneof(Beagle, Shepherd, Retriever);
 
 export const PetStore = {
   Pets: {
     Toys: {
       Toy: fc.record({
-        name: string,
+        name: String,
       }),
     },
 
     Pet: fc.record({
       breed: Breed,
-      id: int32,
-      name: string,
-      age: int32,
-      kind: petType,
+      id: Int32,
+      name: fc.string({
+        minLength: 1,
+        maxLength: 4,
+      }),
+      age: fc.integer({
+        min: 0,
+        max: 100,
+      }),
+      kind: PetType,
     }),
 
-    petType: petType,
+    petType: PetType,
   },
 
   Blah: fc.record({
-    name: string,
+    name: String,
   }),
 
   Breed: Breed,
