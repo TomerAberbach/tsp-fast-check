@@ -34,16 +34,9 @@ export async function $onEmit(context: EmitContext) {
     return;
   }
 
-  let arbitraryNamespace = convertNamespace(
+  const arbitraryNamespace = convertNamespace(
     context.program.getGlobalNamespaceType(),
   );
-  // The global namespace will always have one user defined namespace, which should be the top-level namespace
-  // of the emitted JS file.
-  arbitraryNamespace = {
-    ...arbitraryNamespace.namespaces[0]!,
-    name: "",
-  };
-
   await emitFile(context.program, {
     path: resolvePath(context.emitterOutputDir, "output.js"),
     content: `import * as fc from "fc"\n\n${stringifyNamespace(

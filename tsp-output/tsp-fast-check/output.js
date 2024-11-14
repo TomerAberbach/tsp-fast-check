@@ -67,26 +67,30 @@ const model1 = fc.record({
   blah4: Record,
 });
 
-export const Breed = fc.oneof(model1, model0, model);
+const Breed = fc.oneof(model1, model0, model);
 
-export const Pets = {
-  Toys: {
-    Toy: fc.record({
+export const PetStore = {
+  Pets: {
+    Toys: {
+      Toy: fc.record({
+        name: string,
+      }),
+    },
+
+    Pet: fc.record({
+      breed: Breed,
+      id: int32,
       name: string,
+      age: int32,
+      kind: petType,
     }),
+
+    petType: petType,
   },
 
-  Pet: fc.record({
-    breed: Breed,
-    id: int32,
+  Blah: fc.record({
     name: string,
-    age: int32,
-    kind: petType,
   }),
 
-  petType: petType,
+  Breed: Breed,
 };
-
-export const Blah = fc.record({
-  name: string,
-});
