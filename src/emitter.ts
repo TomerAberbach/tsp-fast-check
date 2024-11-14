@@ -17,17 +17,13 @@ import {
   concat,
   entries,
   filter,
-  filterMap,
   flatMap,
-  index,
   join,
   map,
   pipe,
   reduce,
   toArray,
   toMap,
-  toObject,
-  toSet,
   values,
 } from "lfi";
 import memoize from "memoize";
@@ -57,16 +53,8 @@ export async function $onEmit(context: EmitContext) {
   });
 }
 
-const convertNamespace = (namespace: Namespace): ArbitraryNamespace => ({
-  name: namespace.name,
-  namespaces: pipe(
-    namespace.namespaces,
-    values,
-    filter((namespace) => namespace.name !== "TypeSpec"),
-    map(convertNamespace),
-    reduce(toArray()),
-  ),
-  arbitraries: pipe(
+const convertNamespace = (namespace: Namespace): ArbitraryNamespace => {
+  const nameToArbitrary = pipe(
     concat<[string, Type]>(
       namespace.models,
       namespace.unions,
@@ -74,9 +62,25 @@ const convertNamespace = (namespace: Namespace): ArbitraryNamespace => ({
       namespace.scalars,
     ),
     map(([name, type]): [string, Arbitrary] => [name, convertType(type)]),
-    reduce(toObject()),
-  ),
-});
+    reduce(toMap()),
+  );
+  return {
+    name: namespace.name,
+    namespaces: pipe(
+      namespace.namespaces,
+      values,
+      filter((namespace) => namespace.name !== "TypeSpec"),
+      map(convertNamespace),
+      reduce(toArray()),
+    ),
+    nameToArbitrary,
+    arbitraryToName: pipe(
+      nameToArbitrary,
+      map(([name, arbitrary]): [Arbitrary, string] => [arbitrary, name]),
+      reduce(toMap()),
+    ),
+  };
+};
 
 const convertType = memoize(
   (type: Type, decorators: DecoratorApplication[] = []): Arbitrary => {
@@ -96,7 +100,7 @@ const convertType = memoize(
 );
 
 const convertModel = (model: Model): Arbitrary =>
-  createArbitrary((emitType) => {
+  createArbitrary(model.name || "model", (emitType) => {
     const dictionary = model.indexer
       ? model.indexer.key.name === "integer"
         ? `fc.array(${emitType(model.indexer.value)})`
@@ -111,7 +115,7 @@ const convertModel = (model: Model): Arbitrary =>
                 name,
                 emitType(property.type, property.decorators),
               ]),
-              reduce(toObject()),
+              reduce(toMap()),
             ),
             { emitEmpty: true },
           )})`
@@ -131,7 +135,7 @@ const convertModel = (model: Model): Arbitrary =>
   });
 
 const convertUnion = (union: Union): Arbitrary =>
-  createArbitrary((emitType) =>
+  createArbitrary(union.name || "union", (emitType) =>
     [
       "fc.oneof(",
       indent(
@@ -147,6 +151,7 @@ const convertUnion = (union: Union): Arbitrary =>
 
 const convertEnum = ($enum: Enum): Arbitrary =>
   createArbitrary(
+    $enum.name,
     [
       "fc.constantFrom(",
       indent(
@@ -166,7 +171,7 @@ const convertScalar = (
 ): Arbitrary => {
   switch (scalar.name) {
     case "boolean":
-      return createArbitrary("fc.boolean()");
+      return createArbitrary(scalar.name, "fc.boolean()");
     case "int8":
       return convertInteger(scalar, decorators, { min: -128, max: 127 });
     case "int16":
@@ -193,9 +198,9 @@ const convertScalar = (
     case "string":
       return convertString(scalar, decorators);
     case "bytes":
-      return createArbitrary("fc.int8Array()");
+      return createArbitrary(scalar.name, "fc.int8Array()");
     case "url":
-      return createArbitrary("fc.webUrl()");
+      return createArbitrary(scalar.name, "fc.webUrl()");
   }
 
   throw new Error(`Unhandled Scalar: ${scalar.name}`);
@@ -210,14 +215,23 @@ const convertInteger = (
     concat(decorators, integer.decorators),
   );
   return createArbitrary(
-    `fc.integer(${emitOptions({
-      min: getDecoratorValue(
-        Math.max(min, Number(nameToDecorator.$minValue?.[0] ?? min)),
-      ),
-      max: getDecoratorValue(
-        Math.min(max, Number(nameToDecorator.$maxValue?.[0] ?? max)),
-      ),
-    })})`,
+    integer.name,
+    `fc.integer(${emitOptions(
+      new Map([
+        [
+          "min",
+          getDecoratorValue(
+            Math.max(min, Number(nameToDecorator.get("$minValue")?.[0] ?? min)),
+          ),
+        ],
+        [
+          "max",
+          getDecoratorValue(
+            Math.min(max, Number(nameToDecorator.get("$maxValue")?.[0] ?? max)),
+          ),
+        ],
+      ]),
+    )})`,
   );
 };
 
@@ -230,24 +244,33 @@ const convertBigInteger = (
     concat(decorators, integer.decorators),
   );
   return createArbitrary(
-    `fc.bigInt(${emitOptions({
-      min: getDecoratorValue(
-        min == null
-          ? null
-          : bigIntMax(
-              min,
-              BigInt(String(nameToDecorator.$minValue?.[0] ?? min)),
-            ),
-      ),
-      max: getDecoratorValue(
-        max == null
-          ? null
-          : bigIntMin(
-              max,
-              BigInt(String(nameToDecorator.$maxValue?.[0] ?? max)),
-            ),
-      ),
-    })})`,
+    integer.name,
+    `fc.bigInt(${emitOptions(
+      new Map([
+        [
+          "min",
+          getDecoratorValue(
+            min == null
+              ? null
+              : bigIntMax(
+                  min,
+                  BigInt(String(nameToDecorator.get("$minValue")?.[0] ?? min)),
+                ),
+          ),
+        ],
+        [
+          "max",
+          getDecoratorValue(
+            max == null
+              ? null
+              : bigIntMin(
+                  max,
+                  BigInt(String(nameToDecorator.get("$maxValue")?.[0] ?? max)),
+                ),
+          ),
+        ],
+      ]),
+    )})`,
   );
 };
 
@@ -262,10 +285,13 @@ const convertTypeFloat = (
     concat(decorators, float.decorators),
   );
   return createArbitrary(
-    `fc.float(${emitOptions({
-      min: getDecoratorValue(nameToDecorator.$minValue?.[0]),
-      max: getDecoratorValue(nameToDecorator.$maxValue?.[0]),
-    })})`,
+    float.name,
+    `fc.float(${emitOptions(
+      new Map([
+        ["min", getDecoratorValue(nameToDecorator.get("$minValue")?.[0])],
+        ["max", getDecoratorValue(nameToDecorator.get("$maxValue")?.[0])],
+      ]),
+    )})`,
   );
 };
 
@@ -277,10 +303,13 @@ const convertDouble = (
     concat(decorators, double.decorators),
   );
   return createArbitrary(
-    `fc.double(${emitOptions({
-      min: getDecoratorValue(nameToDecorator.$minValue?.[0]),
-      max: getDecoratorValue(nameToDecorator.$maxValue?.[0]),
-    })})`,
+    double.name,
+    `fc.double(${emitOptions(
+      new Map([
+        ["min", getDecoratorValue(nameToDecorator.get("$minValue")?.[0])],
+        ["max", getDecoratorValue(nameToDecorator.get("$maxValue")?.[0])],
+      ]),
+    )})`,
   );
 };
 
@@ -292,27 +321,36 @@ const convertString = (
     concat(decorators, string.decorators),
   );
   return createArbitrary(
-    `fc.string(${emitOptions({
-      minLength: getDecoratorValue(nameToDecorator.$minLength?.[0]),
-      maxLength: getDecoratorValue(nameToDecorator.$maxLength?.[0]),
-    })})`,
+    string.name,
+    `fc.string(${emitOptions(
+      new Map([
+        [
+          "minLength",
+          getDecoratorValue(nameToDecorator.get("$minLength")?.[0]),
+        ],
+        [
+          "maxLength",
+          getDecoratorValue(nameToDecorator.get("$maxLength")?.[0]),
+        ],
+      ]),
+    )})`,
   );
 };
 
 const getNameToDecorator = (
   decorators: Iterable<DecoratorApplication>,
-): Record<string, DecoratorArgument["jsValue"][]> =>
+): Map<string, DecoratorArgument["jsValue"][]> =>
   pipe(
     decorators,
     map((decorator): [string, DecoratorArgument["jsValue"][]] => [
       decorator.decorator.name,
       decorator.args.map((arg) => arg.jsValue),
     ]),
-    reduce(toObject()),
+    reduce(toMap()),
   );
 
 const getDecoratorValue = (
-  value: DecoratorArgument["jsValue"] | bigint,
+  value: DecoratorArgument["jsValue"] | undefined | bigint,
 ): string | null => {
   if (value == null) {
     return null;
@@ -330,7 +368,7 @@ const getDecoratorValue = (
 };
 
 const emitOptions = (
-  properties: Record<string, string | undefined | null>,
+  properties: Map<string, string | undefined | null>,
   { emitEmpty = false }: { emitEmpty?: boolean } = {},
 ): string => {
   const options = pipe(
@@ -349,6 +387,7 @@ const emitOptions = (
 const indent = (code: string) => indentString(code, 2, { indent: " " });
 
 const createArbitrary = (
+  name: string,
   codeOrFn:
     | string
     | ((
@@ -356,12 +395,13 @@ const createArbitrary = (
       ) => string),
 ): Arbitrary => {
   if (typeof codeOrFn === "string") {
-    return { code: codeOrFn, placeholders: new Map() };
+    return { name, code: codeOrFn, placeholders: new Map() };
   }
 
   let index = 0;
   const placeholders = new Map<string, Arbitrary>();
   return {
+    name,
     code: codeOrFn((type) => {
       const placeholder = `$${index++}`;
       placeholders.set(placeholder, convertType(type));
@@ -374,19 +414,38 @@ const createArbitrary = (
 const collectSharedArbitraries = (
   namespace: ArbitraryNamespace,
 ): Map<Arbitrary, string> => {
-  const sharedArbitraries = new Set<Arbitrary>();
-  const countArbitraryReferences = (namespace: ArbitraryNamespace) => {
-    for (const nestedNamespace of namespace.namespaces) {
-      countArbitraryReferences(nestedNamespace);
+  const arbitraryReferenceCounts = new Map<Arbitrary, number>();
+  const allArbitraries = new Set<Arbitrary>();
+
+  const remainingNamespaces = [namespace];
+  do {
+    const namespace = remainingNamespaces.pop()!;
+    remainingNamespaces.push(...namespace.namespaces);
+
+    for (const namespaceArbitrary of namespace.arbitraryToName.keys()) {
+      arbitraryReferenceCounts.set(
+        namespaceArbitrary,
+        (arbitraryReferenceCounts.get(namespaceArbitrary) ?? 0) + 1,
+      );
     }
-    for (const arbitrary of Object.values(namespace.arbitraries)) {
-      sharedArbitraries.add(arbitrary);
+
+    const remainingArbitraries = [...namespace.arbitraryToName.keys()];
+    while (remainingArbitraries.length > 0) {
+      const arbitrary = remainingArbitraries.pop()!;
+      allArbitraries.add(arbitrary);
+
+      for (const referencedArbitrary of arbitrary.placeholders.values()) {
+        remainingArbitraries.push(referencedArbitrary);
+        arbitraryReferenceCounts.set(
+          referencedArbitrary,
+          (arbitraryReferenceCounts.get(referencedArbitrary) ?? 0) + 1,
+        );
+      }
     }
-  };
-  countArbitraryReferences(namespace);
+  } while (remainingNamespaces.length > 0);
 
   const sharedArbitraryDependencyGraph = pipe(
-    sharedArbitraries,
+    allArbitraries,
     flatMap(
       (arbitrary): Iterable<[Arbitrary, Arbitrary | undefined]> =>
         arbitrary.placeholders.size === 0
@@ -402,14 +461,26 @@ const collectSharedArbitraries = (
     ),
     reduce(toArray()),
   );
+  const sortedSharedArbitraries = toposort(
+    sharedArbitraryDependencyGraph,
+  ).reverse();
+
+  const nextIndices = new Map<string, number>();
   return pipe(
-    toposort(sharedArbitraryDependencyGraph).reverse(),
-    filter((arbitrary) => sharedArbitraries.has(arbitrary)),
-    index,
-    map(([index, arbitrary]): [Arbitrary, string] => [
-      arbitrary,
-      `shared${index}`,
-    ]),
+    sortedSharedArbitraries,
+    filter((arbitrary) => (arbitraryReferenceCounts.get(arbitrary) ?? 0) >= 2),
+    map((arbitrary): [Arbitrary, string] => {
+      let name = namespace.arbitraryToName.get(arbitrary) ?? arbitrary.name;
+      const nextIndex = nextIndices.get(name);
+      if (nextIndex == null) {
+        nextIndices.set(name, 0);
+      } else {
+        nextIndices.set(name, nextIndex + 1);
+        name += nextIndex;
+      }
+
+      return [arbitrary, name];
+    }),
     reduce(toMap()),
   );
 };
@@ -435,7 +506,7 @@ const stringifyNamespace = (
           map(
             ([name, arbitrary]) =>
               `${name}: ${stringifyArbitrary(arbitrary, sharedArbitraries)},`,
-            entries(namespace.arbitraries),
+            entries(namespace.nameToArbitrary),
           ),
         ),
         join("\n\n"),
@@ -453,7 +524,7 @@ const stringifyTopLevelNamespace = (
     concat(
       map(
         ([arbitrary, name]) =>
-          `export const ${name} = ${stringifyArbitraryDefinition(arbitrary, sharedArbitraries)};\n`,
+          `${namespace.arbitraryToName.has(arbitrary) ? "export " : ""}const ${name} = ${stringifyArbitraryDefinition(arbitrary, sharedArbitraries)};\n`,
         entries(sharedArbitraries),
       ),
       map(
@@ -461,19 +532,23 @@ const stringifyTopLevelNamespace = (
           `export const ${namespace.name} = ${stringifyNamespace(namespace, sharedArbitraries)};\n`,
         namespace.namespaces,
       ),
-      map(
-        ([name, arbitrary]) =>
-          `export const ${name} = ${stringifyArbitrary(arbitrary, sharedArbitraries)};\n`,
-        entries(namespace.arbitraries),
+      pipe(
+        entries(namespace.nameToArbitrary),
+        filter(([, arbitrary]) => !sharedArbitraries.has(arbitrary)),
+        map(
+          ([name, arbitrary]) =>
+            `export const ${name} = ${stringifyArbitrary(arbitrary, sharedArbitraries)};\n`,
+        ),
       ),
     ),
-    join("\n\n"),
+    join("\n"),
   );
 
 type ArbitraryNamespace = {
   name: string;
   namespaces: ArbitraryNamespace[];
-  arbitraries: Record<string, Arbitrary>;
+  nameToArbitrary: Map<string, Arbitrary>;
+  arbitraryToName: Map<Arbitrary, string>;
 };
 
 const stringifyArbitrary = (
@@ -494,6 +569,7 @@ const stringifyArbitraryDefinition = (
   );
 
 type Arbitrary = {
+  name: string;
   code: string;
   placeholders: Map<string, Arbitrary>;
 };

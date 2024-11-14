@@ -1,81 +1,92 @@
 import * as fc from "fc";
 
-export const shared0 = fc.record({
-  name: fc.string(),
+const string = fc.string();
+
+const petType = fc.constantFrom("dog", "cat", "fish", "bird", "reptile");
+
+const int32 = fc.integer({
+  min: -2147483648,
+  max: 2147483647,
 });
 
-export const shared1 = fc.constantFrom("dog", "cat", "fish", "bird", "reptile");
+const model = fc
+  .tuple(
+    fc.dictionary(string, string),
+    fc.record({
+      name3: string,
+    }),
+  )
+  .map(([dictionary, record]) => ({ ...dictionary, ...record }));
 
-export const shared2 = fc.oneof(
-  fc.record({
-    int64: fc.bigInt({
-      min: -9223372036854775808n,
-      max: 9223372036854775807n,
-    }),
-    integer: fc.bigInt(),
-    decimal: fc.double(),
-    url: fc.webUrl(),
-    bytes: fc.int8Array(),
-    name: fc.string(),
-    name2: fc.array(fc.string()),
-    age: fc.integer({
-      min: -2147483648,
-      max: 2147483647,
-    }),
-    blah: fc.boolean(),
-    blah2: fc.float(),
-    blah3: fc.double(),
-    blah4: fc.dictionary(fc.string(), fc.string()),
-  }),
-  fc.record({
-    name2: fc.string(),
-    age: fc.integer({
-      min: -2147483648,
-      max: 2147483647,
-    }),
-    age2: fc.integer({
-      min: -32768,
-      max: 32767,
-    }),
-  }),
-  fc
-    .tuple(
-      fc.dictionary(fc.string(), fc.string()),
-      fc.record({
-        name3: fc.string(),
-      }),
-    )
-    .map(([dictionary, record]) => ({ ...dictionary, ...record })),
-);
-
-export const shared3 = fc.record({
-  breed: shared2,
-  id: fc.integer({
-    min: -2147483648,
-    max: 2147483647,
-  }),
-  name: fc.string(),
-  age: fc.integer({
-    min: -2147483648,
-    max: 2147483647,
-  }),
-  kind: shared1,
+const int16 = fc.integer({
+  min: -32768,
+  max: 32767,
 });
 
-export const shared4 = fc.record({
-  name: fc.string(),
+const model0 = fc.record({
+  name2: string,
+  age: int32,
+  age2: int16,
 });
+
+const Record = fc.dictionary(string, string);
+
+const float64 = fc.double();
+
+const float32 = fc.float();
+
+const boolean = fc.boolean();
+
+const Array = fc.array(string);
+
+const bytes = fc.int8Array();
+
+const url = fc.webUrl();
+
+const decimal = fc.double();
+
+const integer = fc.bigInt();
+
+const int64 = fc.bigInt({
+  min: -9223372036854775808n,
+  max: 9223372036854775807n,
+});
+
+const model1 = fc.record({
+  int64: int64,
+  integer: integer,
+  decimal: decimal,
+  url: url,
+  bytes: bytes,
+  name: string,
+  name2: Array,
+  age: int32,
+  blah: boolean,
+  blah2: float32,
+  blah3: float64,
+  blah4: Record,
+});
+
+export const Breed = fc.oneof(model1, model0, model);
 
 export const Pets = {
   Toys: {
-    Toy: shared4,
+    Toy: fc.record({
+      name: string,
+    }),
   },
 
-  Pet: shared3,
+  Pet: fc.record({
+    breed: Breed,
+    id: int32,
+    name: string,
+    age: int32,
+    kind: petType,
+  }),
 
-  petType: shared1,
+  petType: petType,
 };
 
-export const Blah = shared0;
-
-export const Breed = shared2;
+export const Blah = fc.record({
+  name: string,
+});
