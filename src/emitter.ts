@@ -38,7 +38,7 @@ export async function $onEmit(context: EmitContext) {
     context.program.getGlobalNamespaceType(),
   );
   await emitFile(context.program, {
-    path: resolvePath(context.emitterOutputDir, "output.js"),
+    path: resolvePath(context.emitterOutputDir, "arbitraries.js"),
     content: `import * as fc from "fc"\n\n${stringifyNamespace(
       arbitraryNamespace,
       collectSharedArbitraries(arbitraryNamespace),
