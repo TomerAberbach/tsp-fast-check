@@ -16,16 +16,11 @@ union Breed {
   beagle: {
     int64: int64,
     integer: integer,
-    decimal: decimal,
-    url: url,
-    bytes: bytes,
     name: string,
     name2: string[],
     age: int32,
     blah: boolean,
     blah2: float32,
-    blah3: float64,
-    blah4: Record<string>,
   },
   shepherd: {
     name2: string,
@@ -34,11 +29,35 @@ union Breed {
   },
   retriever: {
     name3: string,
-  } & Record<string>,
+  },
 }
 
 model Blah {
   name: string;
+}
+
+namespace Pets2 {
+  model Pet {
+    breed: Breed;
+    id: int32;
+
+    @minLength(1)
+    @maxLength(4)
+    name: string;
+
+    @minValue(0)
+    @maxValue(100)
+    age: int32;
+
+    kind: petType;
+  }
+
+  enum petType {
+    dog: "dog",
+    cat: "cat",
+    fish: "fish",
+    bird: "bird",
+  }
 }
 
 @route("/pets")
@@ -98,7 +117,7 @@ namespace Pets {
   @route("/toys")
   namespace Toys {
     model Toy {
-      name: string;
+      name: int16;
     }
 
     @post

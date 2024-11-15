@@ -29,8 +29,8 @@
   },
   "prettier": "tomer/prettier",
   "dependencies": {
-    "dedent": "^1.5.3",
-    "indent-string": "^5.0.0",
+    "@alloy-js/core": "^0.3.0",
+    "@alloy-js/typescript": "^0.3.0",
     "keyalesce": "^2.0.0",
     "lfi": "^3.5.1",
     "pascalcase": "^2.0.0",
