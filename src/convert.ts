@@ -224,7 +224,7 @@ const convertFloat = (
   )
 
   return memoize({
-    type: 'float',
+    type: `float`,
     name: float.name,
     min: nameToDecorator.get(`$min`)?.number(0) ?? undefined,
     max: nameToDecorator.get(`$max`)?.number(0) ?? undefined,
@@ -240,7 +240,7 @@ const convertString = (
   )
 
   return memoize({
-    type: 'string',
+    type: `string`,
     name: string.name,
     minLength: nameToDecorator.get(`$minLength`)?.number(0) ?? undefined,
     maxLength: nameToDecorator.get(`$maxLength`)?.number(0) ?? undefined,
