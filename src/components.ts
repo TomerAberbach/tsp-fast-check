@@ -28,46 +28,10 @@ const ArbitraryFile = ({
   ay.Output().children(ts.SourceFile({ path: `arbitraries.js` }).code`
     import * as fc from 'fast-check'
 
-    ${ArbitraryNamespace({ namespace, sharedArbitraries })}
+    ${GlobalArbitraryNamespace({ namespace, sharedArbitraries })}
   `)
 
-const ArbitraryNamespace = ({
-  namespace,
-  sharedArbitraries,
-}: {
-  namespace: ArbitraryNamespace
-  sharedArbitraries: Map<Arbitrary, Refkey>
-}): Child => {
-  if (!namespace.name) {
-    return TopLevelArbitraryNamespace({ namespace, sharedArbitraries })
-  }
-
-  return ts.ObjectExpression().children(
-    ayJoin(
-      [
-        ...map(
-          namespace =>
-            ts.ObjectProperty({
-              name: namespace.name,
-              value: code`${ArbitraryNamespace({ namespace, sharedArbitraries })},`,
-            }),
-          namespace.namespaces,
-        ),
-        ...map(
-          ([name, arbitrary]) =>
-            ts.ObjectProperty({
-              name,
-              value: code`${Arbitrary({ arbitrary, sharedArbitraries })},`,
-            }),
-          entries(namespace.nameToArbitrary),
-        ),
-      ],
-      { joiner: `\n\n` },
-    ),
-  )
-}
-
-const TopLevelArbitraryNamespace = ({
+const GlobalArbitraryNamespace = ({
   namespace,
   sharedArbitraries,
 }: {
@@ -93,7 +57,7 @@ const TopLevelArbitraryNamespace = ({
             export: true,
             const: true,
             name: namespace.name,
-            value: ArbitraryNamespace({ namespace, sharedArbitraries }),
+            value: NestedArbitraryNamespace({ namespace, sharedArbitraries }),
           }),
         namespace.namespaces,
       ),
@@ -111,6 +75,37 @@ const TopLevelArbitraryNamespace = ({
       ),
     ],
     { joiner: `\n\n` },
+  )
+
+const NestedArbitraryNamespace = ({
+  namespace,
+  sharedArbitraries,
+}: {
+  namespace: ArbitraryNamespace
+  sharedArbitraries: Map<Arbitrary, Refkey>
+}): Child =>
+  ts.ObjectExpression().children(
+    ayJoin(
+      [
+        ...map(
+          namespace =>
+            ts.ObjectProperty({
+              name: namespace.name,
+              value: code`${NestedArbitraryNamespace({ namespace, sharedArbitraries })},`,
+            }),
+          namespace.namespaces,
+        ),
+        ...map(
+          ([name, arbitrary]) =>
+            ts.ObjectProperty({
+              name,
+              value: code`${Arbitrary({ arbitrary, sharedArbitraries })},`,
+            }),
+          entries(namespace.nameToArbitrary),
+        ),
+      ],
+      { joiner: `\n\n` },
+    ),
   )
 
 const Arbitrary = ({
