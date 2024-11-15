@@ -2,8 +2,8 @@
 import { entries, filter, map, pipe, reduce, toArray, toMap } from 'lfi'
 import * as ay from '@alloy-js/core/stc'
 import * as ts from '@alloy-js/typescript/stc'
-import { join as ayJoin, code } from '@alloy-js/core'
-import type { Child, Children, Refkey } from '@alloy-js/core'
+import { join as ayJoin, code, refkey } from '@alloy-js/core'
+import type { Child, Children } from '@alloy-js/core'
 import type {
   Arbitrary,
   ArbitraryNamespace,
@@ -23,7 +23,7 @@ const ArbitraryFile = ({
   sharedArbitraries,
 }: {
   namespace: ArbitraryNamespace
-  sharedArbitraries: Map<Arbitrary, Refkey>
+  sharedArbitraries: ReadonlySet<Arbitrary>
 }): Child =>
   ay.Output().children(ts.SourceFile({ path: `arbitraries.js` }).code`
     import * as fc from 'fast-check'
@@ -36,20 +36,20 @@ const GlobalArbitraryNamespace = ({
   sharedArbitraries,
 }: {
   namespace: ArbitraryNamespace
-  sharedArbitraries: Map<Arbitrary, Refkey>
+  sharedArbitraries: ReadonlySet<Arbitrary>
 }): Child =>
   ayJoin(
     [
       ...map(
-        ([arbitrary, refkey]) =>
+        arbitrary =>
           ts.VarDeclaration({
             export: namespace.arbitraryToName.has(arbitrary),
             const: true,
             name: namespace.arbitraryToName.get(arbitrary) ?? arbitrary.name,
-            refkey,
+            refkey: refkey(arbitrary),
             value: ArbitraryDefinition({ arbitrary, sharedArbitraries }),
           }),
-        entries(sharedArbitraries),
+        sharedArbitraries,
       ),
       ...map(
         namespace =>
@@ -82,7 +82,7 @@ const NestedArbitraryNamespace = ({
   sharedArbitraries,
 }: {
   namespace: ArbitraryNamespace
-  sharedArbitraries: Map<Arbitrary, Refkey>
+  sharedArbitraries: ReadonlySet<Arbitrary>
 }): Child =>
   ts.ObjectExpression().children(
     ayJoin(
@@ -113,17 +113,18 @@ const Arbitrary = ({
   sharedArbitraries,
 }: {
   arbitrary: Arbitrary
-  sharedArbitraries: Map<Arbitrary, Refkey>
+  sharedArbitraries: ReadonlySet<Arbitrary>
 }): Child =>
-  sharedArbitraries.get(arbitrary) ??
-  ArbitraryDefinition({ arbitrary, sharedArbitraries })
+  sharedArbitraries.has(arbitrary)
+    ? refkey(arbitrary)
+    : ArbitraryDefinition({ arbitrary, sharedArbitraries })
 
 const ArbitraryDefinition = ({
   arbitrary,
   sharedArbitraries,
 }: {
   arbitrary: Arbitrary
-  sharedArbitraries: Map<Arbitrary, Refkey>
+  sharedArbitraries: ReadonlySet<Arbitrary>
 }): Child => {
   switch (arbitrary.type) {
     case `boolean`:
@@ -154,7 +155,7 @@ const RecordArbitrary = ({
   sharedArbitraries,
 }: {
   arbitrary: RecordArbitrary
-  sharedArbitraries: Map<Arbitrary, Refkey>
+  sharedArbitraries: ReadonlySet<Arbitrary>
 }): Child =>
   code`fc.record(${Options({
     properties: pipe(
@@ -173,7 +174,7 @@ const DictionaryArbitrary = ({
   sharedArbitraries,
 }: {
   arbitrary: DictionaryArbitrary
-  sharedArbitraries: Map<Arbitrary, Refkey>
+  sharedArbitraries: ReadonlySet<Arbitrary>
 }): Child => {
   const Key = Arbitrary({ arbitrary: arbitrary.key, sharedArbitraries })
   const Value = Arbitrary({ arbitrary: arbitrary.value, sharedArbitraries })
@@ -185,7 +186,7 @@ const ArrayArbitrary = ({
   sharedArbitraries,
 }: {
   arbitrary: ArrayArbitrary
-  sharedArbitraries: Map<Arbitrary, Refkey>
+  sharedArbitraries: ReadonlySet<Arbitrary>
 }): Child =>
   code`fc.array(${Arbitrary({ arbitrary: arbitrary.value, sharedArbitraries })})`
 
@@ -194,7 +195,7 @@ const UnionArbitrary = ({
   sharedArbitraries,
 }: {
   arbitrary: UnionArbitrary
-  sharedArbitraries: Map<Arbitrary, Refkey>
+  sharedArbitraries: ReadonlySet<Arbitrary>
 }): Child =>
   code`fc.oneof(\n${ay
     .Indent()

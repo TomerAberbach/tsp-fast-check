@@ -1,6 +1,6 @@
 import * as fc from 'fast-check'
 
-const PetType = fc.constantFrom('dog', 'cat', 'fish', 'bird')
+const PetType = fc.constantFrom(`dog`, `cat`, `fish`, `bird`)
 
 const string = fc.string({
   minLength: 1,
@@ -8,8 +8,8 @@ const string = fc.string({
 })
 
 const int32 = fc.integer({
-  min: -2147483648,
-  max: 2147483647,
+  min: -2_147_483_648,
+  max: 2_147_483_647,
 })
 
 const string_2 = fc.string()
@@ -19,8 +19,8 @@ const Retriever = fc.record({
 })
 
 const int16 = fc.integer({
-  min: -32768,
-  max: 32767,
+  min: -32_768,
+  max: 32_767,
 })
 
 const Shepherd = fc.record({
@@ -38,23 +38,23 @@ const Array = fc.record({})
 const integer = fc.bigInt()
 
 const int64 = fc.bigInt({
-  min: -9223372036854775808n,
-  max: 9223372036854775807n,
+  min: -9_223_372_036_854_775_808n,
+  max: 9_223_372_036_854_775_807n,
 })
 
 const Beagle = fc.record({
-  int64: int64,
-  integer: integer,
+  int64,
+  integer,
   name: string_2,
   name2: Array,
   age: int32,
-  blah: blah,
+  blah,
   blah2: float32,
 })
 
 const Breed = fc.oneof(Beagle, Shepherd, Retriever)
 
-const PetType_2 = fc.constantFrom('dog', 'cat', 'fish', 'bird', 'reptile')
+const PetType_2 = fc.constantFrom(`dog`, `cat`, `fish`, `bird`, `reptile`)
 
 export const PetStore = {
   Pets2: {
@@ -91,5 +91,5 @@ export const PetStore = {
     name: string_2,
   }),
 
-  Breed: Breed,
+  Breed,
 }

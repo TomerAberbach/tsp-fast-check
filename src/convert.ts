@@ -20,12 +20,11 @@ import {
   reduce,
   toArray,
   toMap,
+  toSet,
   values,
 } from 'lfi'
 import pascalcase from 'pascalcase'
 import keyalesce from 'keyalesce'
-import { refkey } from '@alloy-js/core'
-import type { Refkey } from '@alloy-js/core'
 import toposort from 'toposort'
 import type { Arbitrary, ArbitraryNamespace } from './arbitrary.ts'
 
@@ -33,7 +32,7 @@ const convertProgram = (
   program: Program,
 ): {
   namespace: ArbitraryNamespace
-  sharedArbitraries: Map<Arbitrary, Refkey>
+  sharedArbitraries: Set<Arbitrary>
 } => {
   const namespace = convertNamespace(program.getGlobalNamespaceType())
   const sharedArbitraries = collectSharedArbitraries(namespace)
@@ -371,7 +370,7 @@ type DecoratorArguments = {
 
 const collectSharedArbitraries = (
   namespace: ArbitraryNamespace,
-): Map<Arbitrary, Refkey> => {
+): Set<Arbitrary> => {
   const arbitraryReferenceCounts = new Map<Arbitrary, number>()
   const arbitraryDependencies = new Map<Arbitrary, Set<Arbitrary>>()
 
@@ -427,8 +426,7 @@ const collectSharedArbitraries = (
   return pipe(
     toposort(sharedArbitraryDependencyGraph).reverse(),
     filter(arbitrary => (arbitraryReferenceCounts.get(arbitrary) ?? 0) >= 2),
-    map((arbitrary): [Arbitrary, Refkey] => [arbitrary, refkey()]),
-    reduce(toMap()),
+    reduce(toSet()),
   )
 }
 
